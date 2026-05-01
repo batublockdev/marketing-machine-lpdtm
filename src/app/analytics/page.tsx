@@ -30,26 +30,30 @@ export default function AnalyticsPage() {
               <p className="text-3xl font-bold" id="videoCount">-</p>
             </div>
           </div>
+          <p className="text-xs text-gray-500 mt-2" id="statusText">Loading...</p>
         </div>
 
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-          <h2 className="text-xl font-semibold mb-4">Published Posts</h2>
+          <h2 className="text-xl font-semibold mb-4">Published Videos</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="text-left text-gray-400 text-sm">
-                  <th className="pb-4">Caption</th>
+                  <th className="pb-4">Video</th>
                   <th className="pb-4">Views</th>
                   <th className="pb-4">Likes</th>
-                  <th className="pb-4">Shares</th>
                   <th className="pb-4">Comments</th>
+                  <th className="pb-4">Shares</th>
                   <th className="pb-4">Published</th>
                 </tr>
               </thead>
               <tbody id="postsTable">
                 <tr>
                   <td colSpan={6} className="text-gray-500 text-center py-8">
-                    Loading...
+                    <div className="flex flex-col items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mb-4"></div>
+                      Loading...
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -60,42 +64,82 @@ export default function AnalyticsPage() {
 
       <script dangerouslySetInnerHTML={{__html: `
         async function loadAnalytics() {
+          const statusEl = document.getElementById('statusText');
+          
           try {
-            const res = await fetch('/api/tiktok/stats');
-            const data = await res.json();
+            statusEl.textContent = 'Loading account stats...';
             
-            if (data.success) {
-              document.getElementById('followers').textContent = data.stats.followers?.toLocaleString() || '0';
-              document.getElementById('following').textContent = data.stats.following?.toLocaleString() || '0';
-              document.getElementById('likes').textContent = data.stats.likes?.toLocaleString() || '0';
-              document.getElementById('videoCount').textContent = data.stats.videoCount?.toLocaleString() || '0';
-              
-              if (data.posts && data.posts.length > 0) {
-                const tbody = document.getElementById('postsTable');
-                tbody.innerHTML = data.posts.map(post => \`
-                  <tr class="border-t border-gray-700">
-                    <td class="py-4">\${post.caption?.substring(0, 50) || 'N/A'}...</td>
-                    <td class="py-4">\${post.views?.toLocaleString() || 0}</td>
-                    <td class="py-4">\${post.likes?.toLocaleString() || 0}</td>
-                    <td class="py-4">\${post.shares?.toLocaleString() || 0}</td>
-                    <td class="py-4">\${post.comments?.toLocaleString() || 0}</td>
-                    <td class="py-4">\${new Date(post.publishedAt).toLocaleDateString()}</td>
-                  </tr>
-                \`).join('');
-              } else {
-                document.getElementById('postsTable').innerHTML = \`
-                  <tr>
-                    <td colspan="6" class="text-gray-500 text-center py-8">
-                      No published posts yet
-                    </td>
-                  </tr>
-                \`;
-              }
+            // Load stats
+            const statsRes = await fetch('/api/tiktok/stats');
+            const statsData = await statsRes.json();
+            
+            if (statsData.success) {
+              document.getElementById('followers').textContent = (statsData.stats?.followers || 0).toLocaleString();
+              document.getElementById('following').textContent = (statsData.stats?.following || 0).toLocaleString();
+              document.getElementById('likes').textContent = (statsData.stats?.likes || 0).toLocaleString();
+              document.getElementById('videoCount').textContent = (statsData.stats?.videoCount || 0).toLocaleString();
+              statusEl.textContent = 'Stats loaded from ' + (statsData.source || 'TikTok');
             } else {
-              console.error('Failed to load analytics:', data.error);
+              statusEl.textContent = 'Error: ' + (statsData.error || 'Unknown error');
+              statusEl.className = 'text-xs text-red-400 mt-2';
+            }
+
+            // Load videos
+            const videosRes = await fetch('/api/tiktok/videos');
+            const videosData = await videosRes.json();
+            
+            if (videosData.success && videosData.videos && videosData.videos.length > 0) {
+              const tbody = document.getElementById('postsTable');
+              tbody.innerHTML = videosData.videos.map(video => \`
+                <tr class="border-t border-gray-700 hover:bg-gray-750">
+                  <td class="py-4">
+                    <div class="text-sm">
+                      \${video.title ? video.title.substring(0, 40) + (video.title.length > 40 ? '...' : '') : 'No title'}
+                    </div>
+                    \${video.share_url ? \`
+                      <a href="\${video.share_url}" target="_blank" class="text-xs text-blue-400 hover:text-blue-300">
+                        View on TikTok →
+                      </a>
+                    \` : ''}
+                  </td>
+                  <td class="py-4 text-purple-400 font-medium">\${(video.view_count || 0).toLocaleString()}</td>
+                  <td class="py-4 text-pink-400">\${(video.like_count || 0).toLocaleString()}</td>
+                  <td class="py-4 text-gray-400">\${(video.comment_count || 0).toLocaleString()}</td>
+                  <td class="py-4 text-gray-400">\${(video.share_count || 0).toLocaleString()}</td>
+                  <td class="py-4 text-gray-500 text-sm">
+                    \${video.create_time ? new Date(video.create_time).toLocaleDateString() : 'N/A'}
+                  </td>
+                </tr>
+              \`).join('');
+            } else if (videosData.error) {
+              document.getElementById('postsTable').innerHTML = \`
+                <tr>
+                  <td colspan="6" class="text-red-400 text-center py-8">
+                    Error: \${videosData.error}
+                  </td>
+                </tr>
+              \`;
+            } else {
+              document.getElementById('postsTable').innerHTML = \`
+                <tr>
+                  <td colspan="6" class="text-gray-500 text-center py-8">
+                    No published videos found. Publish your first video from the dashboard!
+                  </td>
+                </tr>
+              \`;
             }
           } catch (error) {
             console.error('Error loading analytics:', error);
+            statusEl.textContent = 'Error: ' + error.message;
+            statusEl.className = 'text-xs text-red-400 mt-2';
+            
+            document.getElementById('postsTable').innerHTML = \`
+              <tr>
+                <td colspan="6" class="text-red-400 text-center py-8">
+                  Failed to load analytics. Make sure TikTok is connected.
+                </td>
+              </tr>
+            \`;
           }
         }
         
