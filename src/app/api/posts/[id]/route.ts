@@ -1,41 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/db';
-import fs from 'fs/promises';
-import path from 'path';
+import { PrismaClient } from '@prisma/client';
 
-export async function PATCH(
+const prisma = new PrismaClient();
+
+// GET /api/posts/[id] - Get single post
+export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
-  const body = await request.json();
-  const { status, rejectReason } = body;
+  try {
+    const postId = params.id;
 
-  const post = await prisma.post.update({
-    where: { id },
-    data: {
-      status,
-      rejectReason: status === 'rejected' ? rejectReason : null,
-      approvedAt: status === 'approved' ? new Date() : null,
-    },
-  });
+    const post = await prisma.post.findUnique({
+      where: { id: postId }
+    });
 
-  // Write response.json for bot to detect
-  if (status === 'approved' || status === 'rejected') {
-    const dir = path.dirname(post.videoPath);
-    const responsePath = path.join(dir, 'response.json');
-    await fs.writeFile(responsePath, JSON.stringify({
-      status,
-      postId: post.id,
-      approvedAt: post.approvedAt,
-      rejectReason: post.rejectReason,
-    }, null, 2));
-    
-    // Move to approved/rejected folder
-    const statusDir = status === 'approved' ? 'approved' : 'rejected';
-    const targetDir = path.join(dir, '../../..', statusDir, post.botId, post.platform);
-    await fs.mkdir(targetDir, { recursive: true });
+    if (!post) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(post);
+  } catch (error: any) {
+    console.error('Error fetching post:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json(post);
 }

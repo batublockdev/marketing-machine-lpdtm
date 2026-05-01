@@ -7,9 +7,21 @@ Esta guía explica cómo los bots deben interactuar con la plataforma de aprobac
 ## 🎯 Resumen del Flujo
 
 ```
-BOT → INBOX (meta.json) → DASHBOARD → APROBACIÓN → PUBLICACIÓN → STATS
-                                   ↓                      ↓
-                            response.json          DIFERENTE POR PLATAFORMA
+BOT → API UPLOAD → DASHBOARD → APROBACIÓN → PUBLICACIÓN → LIMPIEZA (48h)
+                              ↓                      ↓
+                         response.json          DIFERENTE POR PLATAFORMA
+```
+
+---
+
+## 🆕 NUEVO: API de Upload
+
+**Los bots YA NO guardan archivos en carpetas locales.**
+
+Ahora deben enviar el contenido via API HTTP al dashboard:
+
+```
+POST https://marketing-machine-lpdtm-production.up.railway.app/api/posts/upload
 ```
 
 ---
@@ -27,112 +39,157 @@ BOT → INBOX (meta.json) → DASHBOARD → APROBACIÓN → PUBLICACIÓN → STA
 
 ---
 
-## 📁 Estructura de Archivos
+## 🚀 Paso 1: Enviar Contenido (API Upload)
+
+### Endpoint
 
 ```
-marketing-machine-lpdtm/
-├── inbox/
-│   └── {bot-id}/
-│       └── {plataforma}/
-│           └── {post-id}/
-│               ├── video.mp4       # Archivo de media
-│               ├── meta.json       # Metadata (OBLIGATORIO)
-│               └── response.json   # Creado por la plataforma
-├── approved/
-│   └── {bot-id}/
-│       └── {plataforma}/
-│           └── {post-id}/
-│               ├── video.mp4
-│               └── approved.json
-├── published/
-│   └── {bot-id}/
-│       └── {plataforma}/
-│           └── {post-id}/
-│               ├── video.mp4
-│               └── published.json
-├── stats/
-│   └── {bot-id}.json              # Stats del bot (backup)
-└── dashboard/                      # No tocar
+POST /api/posts/upload
+Content-Type: multipart/form-data
 ```
 
----
+### Parámetros
 
-## 🚀 Paso 1: Enviar Contenido
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `botId` | string | ✅ | ID del bot (ej: "trustapp", "bot-1") |
+| `platform` | string | ✅ | Plataforma (ej: "tiktok", "instagram") |
+| `caption` | string | ❌ | Caption del post |
+| `tags` | string | ❌ | JSON array de tags (ej: '["aur","ahorro"]') |
+| `media` | File[] | ✅ | Archivos de video/imagen (puede ser múltiple) |
 
-Crear carpeta con el contenido:
+### Ejemplo (curl)
 
 ```bash
-POST_ID="post-$(date +%s)"
-BOT_ID="bot-1"
-PLATFORM="tiktok"  # o "instagram"
+curl -X POST https://marketing-machine-lpdtm-production.up.railway.app/api/posts/upload \
+  -F "botId=trustapp" \
+  -F "platform=tiktok" \
+  -F "caption=Ahorro grupal en WhatsApp 📱💰" \
+  -F 'tags=["aur","ahorro","whatsapp"]' \
+  -F "media=@/path/to/video.mp4"
+```
 
-mkdir -p inbox/$BOT_ID/$PLATFORM/$POST_ID
+### Ejemplo (Node.js)
 
-# Para video:
-cp mi_video.mp4 inbox/$BOT_ID/$PLATFORM/$POST_ID/video.mp4
+```javascript
+import FormData from 'form-data';
+import fs from 'fs';
+import axios from 'axios';
 
-# Para carrusel:
-cp imagen1.jpg inbox/$BOT_ID/$PLATFORM/$POST_ID/image1.jpg
-cp imagen2.jpg inbox/$BOT_ID/$PLATFORM/$POST_ID/image2.jpg
+async function sendPost(videoPath, caption, tags) {
+  const form = new FormData();
+  form.append('botId', 'trustapp');
+  form.append('platform', 'tiktok');
+  form.append('caption', caption);
+  form.append('tags', JSON.stringify(tags));
+  form.append('media', fs.createReadStream(videoPath));
 
-# Crear metadata:
-cat > inbox/$BOT_ID/$PLATFORM/$POST_ID/meta.json << 'EOF'
-{
-  "caption": "Mi video! 🚀 #viral",
-  "tags": ["viral", "trending"],
-  "type": "video"
+  const response = await axios.post(
+    'https://marketing-machine-lpdtm-production.up.railway.app/api/posts/upload',
+    form,
+    { headers: form.getHeaders() }
+  );
+
+  return response.data;
 }
-EOF
+
+// Uso:
+const result = await sendPost(
+  './video.mp4',
+  'Ahorro grupal en WhatsApp 📱💰',
+  ['aur', 'ahorro', 'whatsapp']
+);
+
+console.log('Post ID:', result.post.id);
+```
+
+### Ejemplo (Python)
+
+```python
+import requests
+
+def send_post(video_path, caption, tags):
+    url = 'https://marketing-machine-lpdtm-production.up.railway.app/api/posts/upload'
+    
+    files = {'media': open(video_path, 'rb')}
+    data = {
+        'botId': 'trustapp',
+        'platform': 'tiktok',
+        'caption': caption,
+        'tags': str(tags)  # '["aur","ahorro"]'
+    }
+    
+    response = requests.post(url, files=files, data=data)
+    return response.json()
+
+# Uso:
+result = send_post('video.mp4', 'Ahorro grupal!', ['aur', 'ahorro'])
+print(f"Post ID: {result['post']['id']}")
+```
+
+### Respuesta Exitosa
+
+```json
+{
+  "success": true,
+  "post": {
+    "id": "a83a52d5-bea2-4f9f-9829-76f82b31a5ef",
+    "botId": "trustapp",
+    "platform": "tiktok",
+    "caption": "Ahorro grupal en WhatsApp 📱💰",
+    "tags": ["aur", "ahorro", "whatsapp"],
+    "status": "pending",
+    "createdAt": "2026-05-01T06:00:00.000Z"
+  }
+}
 ```
 
 ---
 
 ## ⏳ Paso 2: Esperar Aprobación
 
-Monitorea la aparición de `response.json`:
+Consulta el estado del post:
 
 ```python
-import os
-import json
+import requests
 import time
 
-def wait_for_approval(post_dir, timeout=3600):
-    """Espera hasta que aparezca response.json"""
-    response_path = os.path.join(post_dir, "response.json")
+def wait_for_approval(post_id, timeout=3600):
+    """Espera hasta que el post sea aprobado o rechazado"""
+    url = f'https://marketing-machine-lpdtm-production.up.railway.app/api/posts/{post_id}'
     start = time.time()
     
     while time.time() - start < timeout:
-        if os.path.exists(response_path):
-            with open(response_path) as f:
-                data = json.load(f)
-            
-            if data['status'] == 'approved':
-                return 'approved', data
-            elif data['status'] == 'rejected':
-                return 'rejected', data.get('rejectReason')
+        response = requests.get(url)
+        data = response.json()
         
-        time.sleep(10)
+        if data['status'] == 'approved':
+            return 'approved', data
+        elif data['status'] == 'rejected':
+            return 'rejected', data.get('rejectReason')
+        
+        time.sleep(30)  # Check cada 30 segundos
     
     return 'timeout', None
+
+# Uso:
+status, data = wait_for_approval('a83a52d5-bea2-4f9f-9829-76f82b31a5ef')
+
+if status == 'approved':
+    print("✅ Aprobado! Listo para publicar.")
+elif status == 'rejected':
+    print(f"❌ Rechazado: {data}")
 ```
 
-**response.json (aprobado):**
-```json
-{
-  "status": "approved",
-  "postId": "uuid-del-post",
-  "approvedAt": "2026-04-30T03:00:00Z"
-}
-```
+---
 
-**response.json (rechazado):**
-```json
-{
-  "status": "rejected",
-  "postId": "uuid-del-post",
-  "rejectReason": "Mejorar la iluminación del video"
-}
-```
+## 🗑️ Limpieza Automática
+
+**IMPORTANTE:** Los posts se eliminan automáticamente 48 horas después de ser aprobados o rechazados.
+
+- Esto libera espacio en el servidor
+- El post queda en la base de datos pero los archivos físicos se borran
+- Si necesitas conservar el video, descárgalo antes de las 48 horas
 
 ---
 
@@ -140,34 +197,30 @@ def wait_for_approval(post_dir, timeout=3600):
 
 ### 📱 TikTok - AUTOMÁTICO (Dashboard publica)
 
-**Los bots NO publican en TikTok.** El dashboard lo hace automáticamente.
+**Los bots NO publican en TikTok.** El usuario publica desde el dashboard.
 
-Después de aprobado, el usuario hace click en "Publicar en TikTok" desde el dashboard y:
-1. El dashboard usa el access_token guardado
-2. Sube el video via TikTok Content Posting API
-3. Marca el post como publicado
-
-**El bot solo debe:**
-1. Esperar aprobación (`response.json` con status='approved')
-2. Esperar publicación (`published.json` o consultar API)
-3. Actualizar estadísticas después
+Flujo:
+1. Bot envía contenido via API
+2. Usuario aprueba en dashboard
+3. Usuario hace click en "Publicar en TikTok"
+4. Dashboard publica automáticamente
+5. Bot puede consultar el estado via API
 
 ```python
-# TikTok: Solo esperar y monitorear
-def wait_for_publication_tiktok(post_dir, timeout=7200):
-    """Espera a que el dashboard publique"""
-    published_path = os.path.join(post_dir, "published.json")
-    start = time.time()
+def check_publication(post_id):
+    """Verifica si el post ya fue publicado"""
+    url = f'https://marketing-machine-lpdtm-production.up.railway.app/api/posts/{post_id}'
+    response = requests.get(url)
+    data = response.json()
     
-    while time.time() - start < timeout:
-        if os.path.exists(published_path):
-            with open(published_path) as f:
-                data = json.load(f)
-            return 'published', data
-        
-        time.sleep(30)
+    if data['status'] == 'published':
+        return {
+            'url': data['publishedUrl'],
+            'views': data['views'],
+            'likes': data['likes']
+        }
     
-    return 'timeout', None
+    return None
 ```
 
 ### 📸 Instagram - MANUAL (Bot publica)
@@ -179,75 +232,41 @@ import requests
 
 def mark_as_published(post_id, platform_post_id, url):
     """
-    Marca el post como publicado y actualiza stats iniciales.
+    Marca el post como publicado.
     
-    Endpoint: POST /api/publish
+    Endpoint: PATCH /api/posts/{post_id}
     """
-    response = requests.post(
-        'http://TU_DASHBOARD_URL/api/publish',
+    response = requests.patch(
+        f'https://marketing-machine-lpdtm-production.up.railway.app/api/posts/{post_id}',
         json={
-            'postId': post_id,
-            'platformPostId': platform_post_id,  # ID en Instagram
-            'url': url,  # URL pública del post
-            'stats': {
-                'views': 0,
-                'likes': 0,
-                'shares': 0,
-                'comments': 0
-            }
+            'status': 'published',
+            'platformPostId': platform_post_id,
+            'publishedUrl': url
         }
     )
     
     return response.json()
 
-# Ejemplo Instagram después de publicar:
+# Después de publicar en Instagram:
 result = mark_as_published(
-    post_id='abc-123',
-    platform_post_id='instagram-post-id',
-    url='https://instagram.com/p/ABC123'
+    post_id='a83a52d5-bea2-4f9f-9829-76f82b31a5ef',
+    platform_post_id='17872345111111111',
+    url='https://www.instagram.com/p/C7hXxYZ456/'
 )
 ```
 
 ---
 
-## 📊 Paso 4: Actualizar Estadísticas (API)
-
-Actualizar periódicamente (cada hora o después de cambios):
+## 📊 Paso 4: Actualizar Estadísticas
 
 ```python
 import requests
 
-def update_post_stats(post_id, views, likes, shares, comments):
-    """
-    Actualiza estadísticas de un post específico.
-    
-    Endpoint: PATCH /api/publish
-    """
+def update_stats(post_id, views, likes, shares, comments):
+    """Actualiza estadísticas de un post"""
     response = requests.patch(
-        'http://TU_DASHBOARD_URL/api/publish',
+        f'https://marketing-machine-lpdtm-production.up.railway.app/api/posts/{post_id}',
         json={
-            'postId': post_id,
-            'views': views,
-            'likes': likes,
-            'shares': shares,
-            'comments': comments
-        }
-    )
-    
-    return response.json()
-
-def update_bot_stats(bot_id, platform, posts, views, likes, shares, comments):
-    """
-    Actualiza estadísticas globales del bot.
-    
-    Endpoint: POST /api/stats
-    """
-    response = requests.post(
-        'http://TU_DASHBOARD_URL/api/stats',
-        json={
-            'botId': bot_id,
-            'platform': platform,
-            'posts': posts,
             'views': views,
             'likes': likes,
             'shares': shares,
@@ -259,8 +278,8 @@ def update_bot_stats(bot_id, platform, posts, views, likes, shares, comments):
 
 # Ejemplo: actualizar cada hora
 while True:
-    stats = get_stats_from_api()  # Tu código para obtener stats
-    update_post_stats(post_id, **stats)
+    stats = get_stats_from_instagram_api()  # Tu código
+    update_stats(post_id, **stats)
     time.sleep(3600)
 ```
 
@@ -271,80 +290,76 @@ while True:
 ### TikTok
 
 ```python
-import os
-import json
-import time
 import requests
+import time
 
-BASE_URL = "http://tu-dashboard-url"
-BOT_ID = "bot-1"
-PLATFORM = "tiktok"
+BASE_URL = 'https://marketing-machine-lpdtm-production.up.railway.app'
+BOT_ID = 'trustapp'
+PLATFORM = 'tiktok'
 
-# 1. CREAR POST
+# 1. ENVIAR POST
 def create_post(video_path, caption, tags):
-    post_id = f"post-{int(time.time())}"
-    post_dir = f"inbox/{BOT_ID}/{PLATFORM}/{post_id}"
+    files = {'media': open(video_path, 'rb')}
+    data = {
+        'botId': BOT_ID,
+        'platform': PLATFORM,
+        'caption': caption,
+        'tags': str(tags)
+    }
     
-    os.makedirs(post_dir, exist_ok=True)
-    os.system(f"cp {video_path} {post_dir}/video.mp4")
+    response = requests.post(f'{BASE_URL}/api/posts/upload', files=files, data=data)
+    result = response.json()
     
-    with open(f"{post_dir}/meta.json", 'w') as f:
-        json.dump({'caption': caption, 'tags': tags, 'type': 'video'}, f)
+    if result['success']:
+        return result['post']['id']
     
-    return post_id, post_dir
+    raise Exception(result.get('error', 'Failed to create post'))
 
 # 2. ESPERAR APROBACIÓN
-def wait_approval(post_dir):
-    response_path = f"{post_dir}/response.json"
-    
-    for _ in range(360):  # 1 hora
-        if os.path.exists(response_path):
-            with open(response_path) as f:
-                data = json.load(f)
-            
-            if data['status'] == 'approved':
-                return 'approved', data['postId']
-            elif data['status'] == 'rejected':
-                return 'rejected', data.get('rejectReason')
+def wait_approval(post_id):
+    for _ in range(720):  # 2 horas (30s * 720)
+        response = requests.get(f'{BASE_URL}/api/posts/{post_id}')
+        data = response.json()
         
-        time.sleep(10)
+        if data['status'] == 'approved':
+            return 'approved', data
+        elif data['status'] == 'rejected':
+            return 'rejected', data.get('rejectReason')
+        
+        time.sleep(30)
     
     return 'timeout', None
 
-# 3. ESPERAR PUBLICACIÓN (Dashboard lo hace)
-def wait_publication(post_dir):
-    published_path = f"{post_dir}/../published.json"
-    
-    for _ in range(720):  # 2 horas
-        if os.path.exists(published_path):
-            with open(published_path) as f:
-                return json.load(f)
+# 3. ESPERAR PUBLICACIÓN (Dashboard publica)
+def wait_publication(post_id):
+    for _ in range(1440):  # 12 horas (30s * 1440)
+        response = requests.get(f'{BASE_URL}/api/posts/{post_id}')
+        data = response.json()
         
-        time.sleep(10)
+        if data['status'] == 'published':
+            return data
+        
+        time.sleep(30)
     
     return None
 
 # EJECUTAR
 if __name__ == "__main__":
     # Crear
-    post_id, post_dir = create_post("video.mp4", "Video!", ["viral"])
+    post_id = create_post("video.mp4", "Video! 🚀", ["viral"])
     print(f"✅ Post creado: {post_id}")
     
     # Esperar aprobación
-    status, data = wait_approval(post_dir)
+    status, data = wait_approval(post_id)
     
     if status == 'approved':
         print("✅ Aprobado! Esperando publicación...")
-        post_uuid = data
         
-        # TikTok: El dashboard publica automáticamente
-        published = wait_publication(post_dir)
+        # TikTok: El dashboard publica
+        published = wait_publication(post_id)
         
         if published:
-            print(f"✅ Publicado en TikTok: {published.get('url')}")
-            
-            # Actualizar stats
-            update_post_stats(post_uuid, views=0, likes=0, shares=0, comments=0)
+            print(f"✅ Publicado en TikTok: {published['publishedUrl']}")
         else:
             print("⏳ Aún no publicado...")
     
@@ -357,24 +372,22 @@ if __name__ == "__main__":
 ```python
 # Instagram: El bot publica manualmente
 if __name__ == "__main__":
-    post_id, post_dir = create_post("video.mp4", "Video!", ["viral"])
+    post_id = create_post("video.mp4", "Video!", ["viral"])
     
-    status, data = wait_approval(post_dir)
+    status, data = wait_approval(post_id)
     
     if status == 'approved':
-        post_uuid = data
-        
         # Publicar en Instagram (tu código)
-        result = publish_to_instagram(post_dir)
+        result = publish_to_instagram('video.mp4')
         
-        # Marcar como publicado en dashboard
-        requests.post(f"{BASE_URL}/api/publish", json={
-            'postId': post_uuid,
-            'platformPostId': result['id'],
-            'url': result['url']
-        })
+        # Marcar como publicado
+        mark_as_published(
+            post_id=post_id,
+            platform_post_id=result['id'],
+            url=result['url']
+        )
         
-        print("✅ Publicado!")
+        print("✅ Publicado en Instagram!")
 ```
 
 ---
@@ -383,108 +396,80 @@ if __name__ == "__main__":
 
 | Plataforma | ¿Quién publica? | Flujo del bot |
 |------------|-----------------|---------------|
-| **TikTok** | Dashboard (automático) | Crear → Esperar aprobación → Esperar publicación |
-| **Instagram** | Bot (manual) | Crear → Esperar aprobación → Publicar → Marcar publicado |
-| **YouTube** | Bot (manual) | Crear → Esperar aprobación → Publicar → Marcar publicado |
-| **Twitter/X** | Bot (manual) | Crear → Esperar aprobación → Publicar → Marcar publicado |
-
----
-
-## 📋 Formato de Archivos
-
-### meta.json (OBLIGATORIO)
-```json
-{
-  "caption": "Texto del post 🚀",
-  "tags": ["tag1", "tag2"],
-  "type": "video",
-  "mediaCount": 1
-}
-```
-
-### response.json (GENERADO POR PLATAFORMA)
-```json
-{
-  "status": "approved",
-  "postId": "uuid",
-  "approvedAt": "2026-04-30T03:00:00Z"
-}
-```
-
-### published.json (GENERADO POR PLATAFORMA PARA TIKTOK)
-```json
-{
-  "status": "published",
-  "postId": "post-123",
-  "publishedAt": "2026-04-30T03:30:00Z",
-  "platformPostId": "7123456789",
-  "url": "https://tiktok.com/@user/video/7123456789"
-}
-```
+| **TikTok** | Dashboard (automático) | Enviar → Esperar aprobación → Esperar publicación |
+| **Instagram** | Bot (manual) | Enviar → Esperar aprobación → Publicar → Marcar publicado |
+| **YouTube** | Bot (manual) | Enviar → Esperar aprobación → Publicar → Marcar publicado |
+| **Twitter/X** | Bot (manual) | Enviar → Esperar aprobación → Publicar → Marcar publicado |
 
 ---
 
 ## 🔗 API Endpoints
 
-### POST /api/publish
-Marca un post como publicado y actualiza stats.
+### POST /api/posts/upload
+Sube un nuevo post.
+
+**Body:** `multipart/form-data`
+- `botId` (string, required)
+- `platform` (string, required)
+- `caption` (string, optional)
+- `tags` (JSON string, optional)
+- `media` (file[], required)
+
+### GET /api/posts/{postId}
+Obtiene información de un post.
+
+### GET /api/posts?status=pending
+Lista posts por estado (`pending`, `approved`, `rejected`, `published`).
+
+### PATCH /api/posts/{postId}
+Actualiza un post (estado, stats, etc.).
 
 **Body:**
 ```json
 {
-  "postId": "uuid",
+  "status": "published",
   "platformPostId": "7123456789",
-  "url": "https://...",
-  "stats": { "views": 0, "likes": 0, "shares": 0, "comments": 0 }
-}
-```
-
-### PATCH /api/publish
-Actualiza estadísticas de un post específico.
-
-**Body:**
-```json
-{
-  "postId": "uuid",
+  "publishedUrl": "https://...",
   "views": 12500,
-  "likes": 850,
-  "shares": 45,
-  "comments": 67
+  "likes": 850
 }
 ```
 
-### POST /api/stats
-Actualiza estadísticas globales del bot.
+---
 
-**Body:**
-```json
-{
-  "botId": "bot-1",
-  "platform": "tiktok",
-  "posts": 15,
-  "views": 125000,
-  "likes": 8500,
-  "shares": 320,
-  "comments": 450
-}
+## 🗑️ Política de Retención
+
+- **Posts pendientes:** Se eliminan después de 7 días sin aprobación
+- **Posts aprobados/rechazados:** Los archivos se eliminan después de 48 horas
+- **Posts publicados:** Los archivos se eliminan después de 48 horas
+- **Base de datos:** Los registros se conservan indefinidamente
+
+Para descargar un video antes de que se elimine:
+```
+GET /api/media?path=/app/uploads/{botId}/{platform}/{postId}/video.mp4
 ```
 
 ---
 
 ## ❓ Preguntas Frecuentes
 
-### ¿Por qué TikTok es diferente?
-TikTok requiere OAuth y el access_token se guarda en el dashboard. Los bots no tienen acceso a ese token, así que el dashboard publica directamente.
+### ¿Por qué usar API en lugar de carpetas locales?
+El dashboard ahora corre en Railway (cloud), no tiene acceso a tu sistema de archivos local.
 
-### ¿Qué pasa si el dashboard no publica?
-El post queda en status "approved". El usuario debe hacer click en "Publicar en TikTok" desde el dashboard.
+### ¿Dónde se guardan los videos?
+En el volumen persistente de Railway: `/app/uploads/`
 
-### ¿Cómo sé si ya se publicó en TikTok?
-- Verificar `published.json` en la carpeta del post
-- O consultar API: `GET /api/posts/{postId}`
+### ¿Cuánto tiempo se conservan los videos?
+48 horas después de aprobación/rechazo. Después se eliminan automáticamente.
 
-### ¿Puedo forzar la publicación desde el bot?
-No para TikTok. El access_token está en el dashboard por seguridad.
+### ¿Puedo conservar un video más tiempo?
+No automáticamente. Descárgalo antes de las 48 horas si lo necesitas.
+
+### ¿Qué pasa si el upload falla?
+La API devuelve un error. El bot debe reintentar o registrar el error.
+
+### ¿Hay límite de tamaño?
+Sí, el límite está configurado en el servidor. Videos grandes pueden tardar más.
 
 ---
 
