@@ -37,7 +37,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # Copy public directory
 COPY --from=builder /app/public ./public
-# Copy Prisma schema and node_modules for prisma db push
+# Copy Prisma schema and node_modules for migrations
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
@@ -45,4 +45,5 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+# Run migrations and start server
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
