@@ -9,12 +9,16 @@ const navItems = [
   { href: '/approved', label: 'Aprobados', icon: '✅' },
   { href: '/rejected', label: 'Rechazados', icon: '❌' },
   { href: '/stats', label: 'Estadísticas', icon: '📊' },
+  { href: '/analytics', label: 'TikTok Analytics', icon: '📈' },
 ];
 
 interface TikTokStatus {
   connected: boolean;
   openId?: string;
   needsRefresh?: boolean;
+  username?: string;
+  followers?: number;
+  videoCount?: number;
 }
 
 export default function Sidebar() {
@@ -31,9 +35,32 @@ export default function Sidebar() {
 
   const checkTikTokStatus = async () => {
     try {
-      const res = await fetch('/api/tiktok/status');
-      const data = await res.json();
-      setTiktok(data);
+      // Get connection status
+      const statusRes = await fetch('/api/tiktok/status');
+      const statusData = await statusRes.json();
+      
+      if (!statusData.connected) {
+        setTiktok({ connected: false });
+        return;
+      }
+      
+      // Get profile and stats if connected
+      const [profileRes, statsRes] = await Promise.all([
+        fetch('/api/tiktok/profile'),
+        fetch('/api/tiktok/stats')
+      ]);
+      
+      const profileData = profileRes.ok ? await profileRes.json() : null;
+      const statsData = statsRes.ok ? await statsRes.json() : null;
+      
+      setTiktok({
+        connected: true,
+        openId: statusData.openId,
+        needsRefresh: statusData.needsRefresh,
+        username: profileData?.profile?.username,
+        followers: statsData?.stats?.followers,
+        videoCount: statsData?.stats?.videoCount
+      });
     } catch (error) {
       console.error('Error checking TikTok status:', error);
     } finally {
@@ -91,9 +118,24 @@ export default function Sidebar() {
               <span className="text-green-400 text-lg">✓</span>
               <span className="text-white text-sm font-medium">Conectado</span>
             </div>
+            {tiktok.username && (
+              <p className="text-xs text-pink-400 mb-2">
+                @{tiktok.username}
+              </p>
+            )}
             {tiktok.openId && (
               <p className="text-xs text-gray-400 mb-2 truncate" title={tiktok.openId}>
                 ID: {tiktok.openId.substring(0, 12)}...
+              </p>
+            )}
+            {tiktok.followers !== undefined && (
+              <p className="text-xs text-gray-400 mb-1">
+                👥 {tiktok.followers.toLocaleString()} seguidores
+              </p>
+            )}
+            {tiktok.videoCount !== undefined && (
+              <p className="text-xs text-gray-400 mb-2">
+                🎬 {tiktok.videoCount} videos
               </p>
             )}
             {tiktok.needsRefresh && (
