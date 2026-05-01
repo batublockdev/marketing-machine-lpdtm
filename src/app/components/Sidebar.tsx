@@ -121,6 +121,24 @@ export default function Sidebar() {
         )}
       </div>
 
+      {/* Footer Links */}
+      <div className="mt-8 pt-8 border-t border-gray-800">
+        <div className="space-y-2">
+          <Link 
+            href="/terms" 
+            className="block text-xs text-gray-500 hover:text-gray-300"
+          >
+            Terms of Service
+          </Link>
+          <Link 
+            href="/privacy" 
+            className="block text-xs text-gray-500 hover:text-gray-300"
+          >
+            Privacy Policy
+          </Link>
+        </div>
+      </div>
+
       <div className="absolute bottom-6 left-4 right-4">
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <p className="text-xs text-gray-500 mb-1">Bots activos</p>
