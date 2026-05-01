@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-const prisma = new PrismaClient();
+
 
 // POST /api/posts/upload - Upload media from bots
 export async function POST(request: NextRequest) {

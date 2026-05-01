@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import fs from 'fs';
-import path from 'path';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // GET /api/posts - List posts by status
 export async function GET(request: NextRequest) {
@@ -80,23 +76,6 @@ export async function DELETE(request: NextRequest) {
 
     if (!postId) {
       return NextResponse.json({ error: 'postId is required' }, { status: 400 });
-    }
-
-    // Get post to find video path
-    const post = await prisma.post.findUnique({
-      where: { id: postId }
-    });
-
-    if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
-    }
-
-    // Delete files
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    const postDir = path.dirname(post.videoPath);
-    
-    if (postDir.startsWith(uploadDir) && fs.existsSync(postDir)) {
-      fs.rmSync(postDir, { recursive: true, force: true });
     }
 
     // Delete from database

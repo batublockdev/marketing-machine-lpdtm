@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // GET /api/tiktok/stats - Get user stats and post analytics
 export async function GET(request: NextRequest) {
@@ -50,107 +48,39 @@ export async function GET(request: NextRequest) {
       console.log('Token refreshed successfully');
     }
 
-    // Get user stats from TikTok - using correct endpoint
-    console.log('Fetching user info from TikTok API...');
-    
-    try {
-      // First get basic user info
-      const userInfoResponse = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        }
-      });
+    // Get published posts from database
+    const publishedPosts = await prisma.post.findMany({
+      where: {
+        platform: 'tiktok',
+        status: 'published',
+        platformPostId: { not: null }
+      },
+      orderBy: { publishedAt: 'desc' },
+      take: 50
+    });
 
-      console.log('User info response status:', userInfoResponse.status);
-      const userInfoText = await userInfoResponse.text();
-      console.log('User info response:', userInfoText.substring(0, 500));
+    console.log('Found published posts:', publishedPosts.length);
 
-      let followers = 0;
-      let videoCount = 0;
-      let following = 0;
-      let likes = 0;
-
-      // Try to parse user info
-      try {
-        const userInfo = JSON.parse(userInfoText);
-        if (userInfo.data?.user) {
-          console.log('User info parsed successfully');
-        }
-      } catch (e) {
-        console.log('Could not parse user info, using defaults');
-      }
-
-      // Get published posts from database
-      const publishedPosts = await prisma.post.findMany({
-        where: {
-          platform: 'tiktok',
-          status: 'published',
-          platformPostId: { not: null }
-        },
-        orderBy: { publishedAt: 'desc' },
-        take: 50
-      });
-
-      console.log('Found published posts:', publishedPosts.length);
-
-      return NextResponse.json({
-        success: true,
-        source: 'database',
-        stats: {
-          followers: followers,
-          following: following,
-          likes: likes,
-          videoCount: videoCount
-        },
-        posts: publishedPosts.map(post => ({
-          id: post.id,
-          title: post.caption,
-          view_count: post.views,
-          like_count: post.likes,
-          comment_count: post.comments,
-          share_count: post.shares,
-          share_url: post.publishedUrl,
-          create_time: post.publishedAt ? new Date(post.publishedAt).getTime() : null
-        }))
-      });
-
-    } catch (fetchError: any) {
-      console.error('Fetch error:', fetchError);
-      
-      // Return database posts even if TikTok API fails
-      const publishedPosts = await prisma.post.findMany({
-        where: {
-          platform: 'tiktok',
-          status: 'published',
-          platformPostId: { not: null }
-        },
-        orderBy: { publishedAt: 'desc' },
-        take: 50
-      });
-
-      return NextResponse.json({
-        success: true,
-        source: 'database',
-        stats: {
-          followers: 0,
-          following: 0,
-          likes: 0,
-          videoCount: publishedPosts.length
-        },
-        posts: publishedPosts.map(post => ({
-          id: post.id,
-          title: post.caption,
-          view_count: post.views,
-          like_count: post.likes,
-          comment_count: post.comments,
-          share_count: post.shares,
-          share_url: post.publishedUrl,
-          create_time: post.publishedAt ? new Date(post.publishedAt).getTime() : null
-        })),
-        warning: 'Could not fetch from TikTok API: ' + fetchError.message
-      });
-    }
+    return NextResponse.json({
+      success: true,
+      source: 'database',
+      stats: {
+        followers: 0,
+        following: 0,
+        likes: 0,
+        videoCount: publishedPosts.length
+      },
+      posts: publishedPosts.map(post => ({
+        id: post.id,
+        title: post.caption,
+        view_count: post.views,
+        like_count: post.likes,
+        comment_count: post.comments,
+        share_count: post.shares,
+        share_url: post.publishedUrl,
+        create_time: post.publishedAt ? new Date(post.publishedAt).getTime() : null
+      }))
+    });
 
   } catch (error: any) {
     console.error('Error in /api/tiktok/stats:', error);
