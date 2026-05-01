@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -21,8 +21,28 @@ COPY . .
 # Build Next.js app
 RUN npm run build
 
-# Expose port
+# Production stage
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
+ENV NODE_ENV=production
+
+# Copy standalone output
+COPY --from=builder /app/.next/standalone ./
+# Copy static assets into standalone directory
+COPY --from=builder /app/.next/static ./.next/static
+# Copy public directory
+COPY --from=builder /app/public ./public
+# Copy Prisma schema and node_modules for prisma db push
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
 EXPOSE 3000
 
-# Start command
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
