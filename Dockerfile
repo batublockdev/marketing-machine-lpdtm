@@ -30,6 +30,8 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 
 ENV NODE_ENV=production
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=3000
 
 # Copy standalone output
 COPY --from=builder /app/.next/standalone ./
@@ -46,5 +48,5 @@ COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
 
 EXPOSE 3000
 
-# Run migrations and start server
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
+# Start server (migrations run in preDeployCommand)
+CMD ["node", "server.js"]
