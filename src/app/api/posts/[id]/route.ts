@@ -6,13 +6,13 @@ const prisma = new PrismaClient();
 // GET /api/posts/[id] - Get single post
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const postId = params.id;
+    const { id } = await params;
 
     const post = await prisma.post.findUnique({
-      where: { id: postId }
+      where: { id }
     });
 
     if (!post) {
