@@ -2,7 +2,8 @@
 builder = "DOCKERFILE"
 
 [deploy]
-preDeployCommand = "node node_modules/prisma/build/index.js migrate deploy"
+preDeployCommand = "node node_modules/prisma/build/index.js db push --accept-data-loss"
+startCommand = "node server.js"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
