@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     
     const botId = formData.get('botId') as string;
     const platform = formData.get('platform') as string;
+    const targetAccount = formData.get('targetAccount') as string; // Cuenta destino
     const caption = formData.get('caption') as string;
     const tags = formData.get('tags') as string; // JSON array string
     const mediaFiles = formData.getAll('media') as File[];
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
         id: postId,
         botId,
         platform,
+        targetAccount: targetAccount || null,
         videoPath,
         mediaFiles: mediaFilesJson,
         caption: caption || null,
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
         id: post.id,
         botId: post.botId,
         platform: post.platform,
+        targetAccount: post.targetAccount,
         caption: post.caption,
         tags: post.tags ? JSON.parse(post.tags) : [],
         status: post.status,
