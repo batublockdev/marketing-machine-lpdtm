@@ -1,36 +1,228 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Marketing Machine LPDTM - Documentación
 
-## Getting Started
+## Arquitectura del Sistema
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│    BOTS     │────▶│    INBOX     │◀────│  DASHBOARD  │
+│  (creadores)│     │  (archivos)  │     │   (web UI)  │
+└─────────────┘     └──────────────┘     └─────────────┘
+                           │                      │
+                           ▼                      │
+                    ┌──────────────┐            │
+                    │   WATCHER    │────────────┘
+                    │ (procesador) │
+                    └──────────────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   DATABASE   │
+                    │   (SQLite)   │
+                    └──────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Estructura de Directorios
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+marketing-machine-lpdtm/
+├── inbox/                          # Entrada de contenido
+│   ├── bot-1/
+│   │   ├── tiktok/
+│   │   │   └── post-001/
+│   │   │       ├── video.mp4       # Archivo de media
+│   │   │       ├── meta.json       # Metadata del post
+│   │   │       ├── response.json   # Respuesta (aprobado/rechazado)
+│   │   │       └── published.json   # Confirmación de publicación
+│   │   └── instagram/
+│   ├── bot-2/
+│   └── bot-3/
+├── approved/                       # Posts aprobados (movidos aquí)
+├── rejected/                       # Posts rechazados (movidos aquí)
+├── published/                      # Posts publicados (logs)
+├── stats/                          # Estadísticas por bot
+│   ├── bot-1.json
+│   ├── bot-2.json
+│   └── bot-3.json
+└── dashboard/                       # Aplicación web
+    ├── src/
+    ├── watcher/
+    └── prisma/
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Flujo de Trabajo
 
-## Learn More
+### 1. Envío de contenido (Bot → Plataforma)
 
-To learn more about Next.js, take a look at the following resources:
+El bot crea una carpeta con archivos:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+mkdir -p inbox/bot-1/tiktok/post-001/
+cp video.mp4 inbox/bot-1/tiktok/post-001/
+echo '{"caption": "Mi video!", "tags": ["viral"]}' > inbox/bot-1/tiktok/post-001/meta.json
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 2. Procesamiento automático
 
-## Deploy on Vercel
+El **watcher** detecta el `meta.json` y:
+- Registra el post en la base de datos
+- Lo marca como `pending`
+- Lo muestra en el dashboard
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. Aprobación/Rechazo (Dashboard → Bot)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Cuando el humano aprueba o rechaza:
+
+```json
+// response.json (aprobado)
+{
+  "status": "approved",
+  "postId": "uuid",
+  "approvedAt": "2026-04-30T03:00:00Z"
+}
+
+// response.json (rechazado)
+{
+  "status": "rejected",
+  "postId": "uuid",
+  "rejectReason": "El texto no se lee bien"
+}
+```
+
+### 4. Publicación (Bot → Red social)
+
+El bot detecta `response.json` con `status: "approved"`:
+1. Lee el archivo de media
+2. Publica en la red social usando sus credenciales
+3. Escribe `published.json`:
+
+```json
+{
+  "status": "published",
+  "postId": "uuid",
+  "publishedAt": "2026-04-30T03:30:00Z",
+  "platformPostId": "7123456789",
+  "url": "https://tiktok.com/@user/video/7123456789"
+}
+```
+
+### 5. Estadísticas
+
+El bot actualiza periódicamente `stats/bot-1.json`:
+
+```json
+{
+  "botId": "bot-1",
+  "tiktok": {
+    "posts": 15,
+    "views": 125000,
+    "likes": 8500,
+    "shares": 320,
+    "comments": 450
+  },
+  "instagram": {
+    "posts": 8,
+    "views": 45000,
+    "likes": 3200,
+    "shares": 120,
+    "comments": 180
+  }
+}
+```
+
+## API REST
+
+### Obtener posts pendientes
+```
+GET /api/posts?status=pending
+```
+
+### Obtener posts aprobados
+```
+GET /api/posts?status=approved
+```
+
+### Aprobar post
+```
+PATCH /api/posts/:id
+{
+  "status": "approved"
+}
+```
+
+### Rechazar post
+```
+PATCH /api/posts/:id
+{
+  "status": "rejected",
+  "rejectReason": "Motivo del rechazo"
+}
+```
+
+### Obtener media
+```
+GET /api/media?path=/absolute/path/to/file.mp4
+```
+
+## Comandos
+
+### Iniciar dashboard
+```bash
+cd dashboard
+npm run dev
+# Dashboard disponible en http://localhost:3000
+```
+
+### Iniciar watcher
+```bash
+cd dashboard
+npm run watcher
+# Monitorea inbox/ para nuevos posts
+```
+
+### Iniciar tunnel (Cloudflare)
+```bash
+cloudflared tunnel --url http://localhost:3000
+# URL pública disponible para acceso remoto
+```
+
+## Formato de Archivos
+
+### meta.json (obligatorio)
+```json
+{
+  "caption": "Texto del post #hashtag",
+  "tags": ["tag1", "tag2"],
+  "type": "video",           // "video" o "carousel"
+  "mediaCount": 5,           // solo para carousel
+  "scheduled_time": null     // opcional
+}
+```
+
+### response.json (generado por la plataforma)
+```json
+{
+  "status": "approved" | "rejected",
+  "postId": "uuid",
+  "approvedAt": "ISO-date",
+  "rejectReason": "texto"    // solo si rejected
+}
+```
+
+### published.json (generado por el bot)
+```json
+{
+  "status": "published",
+  "postId": "uuid",
+  "publishedAt": "ISO-date",
+  "platformPostId": "id-en-plataforma",
+  "url": "https://..."
+}
+```
+
+## Próximos Pasos
+
+1. **Integración TikTok API** - Conectar con la API oficial de TikTok para publicación directa
+2. **Integración Instagram API** - Conectar con Instagram Graph API
+3. **Autenticación de bots** - Sistema de tokens para identificar bots
+4. **Webhooks** - Notificaciones HTTP en lugar de polling de archivos
+5. **Cola de publicación** - Programar publicaciones en horarios específicos

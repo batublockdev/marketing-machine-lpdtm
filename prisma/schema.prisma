@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id              String      @id @default(uuid())
+  botId           String
+  platform        String                    // "tiktok" o "instagram"
+  targetAccount   String?                   // Cuenta destino especificada por el bot
+  videoPath       String
+  mediaFiles      String?                   // JSON array for carousel support
+  caption         String?
+  tags            String?
+  status          String      @default("pending")  // pending | approved | rejected
+  rejectReason    String?
+
+  // TikTok publication
+  tiktokPublished     Boolean   @default(false)
+  tiktokPostId        String?
+  tiktokUrl           String?
+  tiktokPublishedAt   DateTime?
+
+  // Instagram publication (manual por el bot)
+  instagramPublished      Boolean   @default(false)
+  instagramPostId         String?
+  instagramUrl           String?
+  instagramPublishedAt   DateTime?
+  instagramPublishReady  Boolean   @default(false)  // Flag para que el bot sepa que puede publicar
+
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+
+  @@index([botId])
+  @@index([platform])
+  @@index([status])
+  @@index([tiktokPublished])
+  @@index([instagramPublished])
+  @@index([instagramPublishReady])
+}
+
+model TikTokToken {
+  id            String   @id @default(uuid())
+  openId        String   @unique
+  accessToken   String
+  refreshToken  String
+  expiresIn     Int
+  scope         String
+  obtainedAt    DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  @@index([openId])
+}
