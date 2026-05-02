@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
             status: { in: ['approved', 'rejected', 'published'] },
             OR: [
               { approvedAt: { lt: hours48Ago } },
-              { publishedAt: { lt: hours48Ago } }
+              { tiktokPublishedAt: { lt: hours48Ago } },
+              { instagramPublishedAt: { lt: hours48Ago } }
             ]
           },
           {
