@@ -35,7 +35,7 @@ export default function RejectedPage() {
   const fetchPosts = async () => {
     const res = await fetch('/api/posts?status=rejected');
     const data = await res.json();
-    setPosts(data);
+    setPosts(data.posts || data || []);
     setLoading(false);
   };
 

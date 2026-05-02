@@ -51,7 +51,7 @@ export default function ApprovedPage() {
   const fetchPosts = async () => {
     const res = await fetch('/api/posts?status=approved');
     const data = await res.json();
-    setPosts(data);
+    setPosts(data.posts || data || []);
     setLoading(false);
   };
 
