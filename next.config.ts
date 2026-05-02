@@ -10,9 +10,23 @@ const nextConfig: NextConfig = {
   ],
   // Serve files from uploads directory
   serverExternalPackages: ['fs', 'path'],
-  // Ensure proper build output
+  // Disable static optimization for dynamic pages
   experimental: {
-    // Enable if needed for stability
+    // Ensure fresh builds
+  },
+  // Headers to prevent caching issues
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
   },
 };
 
