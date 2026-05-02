@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-
-
 // GET /api/tiktok/videos - Get list of published videos with stats
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Check if token needs refresh
     const tokenAge = Date.now() - token.updatedAt.getTime();
     const expiresInMs = token.expiresIn * 1000;
-    
+
     if (tokenAge > expiresInMs - 3600000) {
       const refreshed = await refreshTikTokToken(token.refreshToken);
       if (!refreshed) {
@@ -52,10 +50,10 @@ export async function GET(request: NextRequest) {
       const publishedPosts = await prisma.post.findMany({
         where: {
           platform: 'tiktok',
-          status: 'published',
-          platformPostId: { not: null }
+          tiktokPublished: true,
+          tiktokPostId: { not: null }
         },
-        orderBy: { publishedAt: 'desc' },
+        orderBy: { tiktokPublishedAt: 'desc' },
         take: 50
       });
 
@@ -63,14 +61,10 @@ export async function GET(request: NextRequest) {
         success: true,
         source: 'database',
         videos: publishedPosts.map(post => ({
-          id: post.platformPostId,
+          id: post.tiktokPostId,
           title: post.caption,
-          view_count: post.views,
-          like_count: post.likes,
-          comment_count: post.comments,
-          share_count: post.shares,
-          share_url: post.publishedUrl,
-          create_time: post.publishedAt?.getTime()
+          share_url: post.tiktokUrl,
+          create_time: post.tiktokPublishedAt?.getTime()
         }))
       });
     }
