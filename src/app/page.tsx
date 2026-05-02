@@ -14,6 +14,15 @@ interface Post {
   caption: string | null;
   tags: string | null;
   status: string;
+  // Legacy fields
+  platformPostId?: string | null;
+  publishedUrl?: string | null;
+  views?: number;
+  likes?: number;
+  shares?: number;
+  comments?: number;
+  publishedAt?: string | null;
+  // TikTok
   tiktokPublished: boolean;
   instagramPublished: boolean;
   instagramPublishReady: boolean;

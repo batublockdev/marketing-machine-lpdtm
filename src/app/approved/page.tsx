@@ -13,16 +13,24 @@ interface Post {
   mediaFiles: string | null;
   caption: string | null;
   status: string;
+  // Legacy fields
+  platformPostId?: string | null;
+  publishedUrl?: string | null;
+  views?: number;
+  likes?: number;
+  shares?: number;
+  comments?: number;
+  publishedAt?: string | null;
   // TikTok
   tiktokPublished: boolean;
-  tiktokPostId: string | null;
-  tiktokUrl: string | null;
-  tiktokPublishedAt: string | null;
+  tiktokPostId?: string | null;
+  tiktokUrl?: string | null;
+  tiktokPublishedAt?: string | null;
   // Instagram
   instagramPublished: boolean;
-  instagramPostId: string | null;
-  instagramUrl: string | null;
-  instagramPublishedAt: string | null;
+  instagramPostId?: string | null;
+  instagramUrl?: string | null;
+  instagramPublishedAt?: string | null;
   instagramPublishReady: boolean;
   // Timestamps
   createdAt: string;

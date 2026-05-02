@@ -1,20 +1,4 @@
--- DropIndex
-DROP INDEX IF EXISTS "Post_status_idx";
-
--- DropIndex
-DROP INDEX IF EXISTS "Stats_botId_platform_key";
-
--- Drop existing columns from Post
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "platformPostId";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "publishedUrl";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "views";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "likes";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "shares";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "comments";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "publishedAt";
-ALTER TABLE "Post" DROP COLUMN IF EXISTS "statsUpdatedAt";
-
--- Add new columns to Post
+-- Add new columns to Post (without dropping existing ones)
 ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "targetAccount" TEXT;
 ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "tiktokPublished" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "tiktokPostId" TEXT;
@@ -32,8 +16,18 @@ CREATE INDEX IF NOT EXISTS "Post_tiktokPublished_idx" ON "Post"("tiktokPublished
 CREATE INDEX IF NOT EXISTS "Post_instagramPublished_idx" ON "Post"("instagramPublished");
 CREATE INDEX IF NOT EXISTS "Post_instagramPublishReady_idx" ON "Post"("instagramPublishReady");
 
--- Recreate status index
-CREATE INDEX IF NOT EXISTS "Post_status_idx" ON "Post"("status");
+-- Recreate Stats table if it doesn't exist
+CREATE TABLE IF NOT EXISTS "Stats" (
+    "id" TEXT NOT NULL,
+    "botId" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "posts" INTEGER NOT NULL DEFAULT 0,
+    "views" INTEGER NOT NULL DEFAULT 0,
+    "likes" INTEGER NOT NULL DEFAULT 0,
+    "shares" INTEGER NOT NULL DEFAULT 0,
+    "comments" INTEGER NOT NULL DEFAULT 0,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Stats_pkey" PRIMARY KEY ("id")
+);
 
--- Drop Stats table
-DROP TABLE IF EXISTS "Stats";
+CREATE UNIQUE INDEX IF NOT EXISTS "Stats_botId_platform_key" ON "Stats"("botId", "platform");

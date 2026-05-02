@@ -10,27 +10,37 @@ datasource db {
 model Post {
   id              String      @id @default(uuid())
   botId           String
-  platform        String                    // "tiktok" o "instagram"
-  targetAccount   String?                   // Cuenta destino especificada por el bot
+  platform        String
+  targetAccount   String?
   videoPath       String
-  mediaFiles      String?                   // JSON array for carousel support
+  mediaFiles      String?
   caption         String?
   tags            String?
-  status          String      @default("pending")  // pending | approved | rejected
+  status          String      @default("pending")
   rejectReason    String?
 
-  // TikTok publication
+  // Legacy fields (keep for backward compatibility)
+  platformPostId  String?
+  publishedUrl    String?
+  views           Int         @default(0)
+  likes           Int         @default(0)
+  shares          Int         @default(0)
+  comments        Int         @default(0)
+  publishedAt     DateTime?
+  statsUpdatedAt  DateTime?
+
+  // New TikTok fields
   tiktokPublished     Boolean   @default(false)
   tiktokPostId        String?
   tiktokUrl           String?
   tiktokPublishedAt   DateTime?
 
-  // Instagram publication (manual por el bot)
+  // New Instagram fields
   instagramPublished      Boolean   @default(false)
   instagramPostId         String?
   instagramUrl           String?
   instagramPublishedAt   DateTime?
-  instagramPublishReady  Boolean   @default(false)  // Flag para que el bot sepa que puede publicar
+  instagramPublishReady  Boolean   @default(false)
 
   // Timestamps
   createdAt       DateTime    @default(now())
@@ -56,4 +66,18 @@ model TikTokToken {
   updatedAt     DateTime @default(now())
 
   @@index([openId])
+}
+
+model Stats {
+  id          String   @id @default(uuid())
+  botId       String
+  platform    String
+  posts       Int      @default(0)
+  views       Int      @default(0)
+  likes       Int      @default(0)
+  shares      Int      @default(0)
+  comments    Int      @default(0)
+  updatedAt   DateTime  @default(now())
+
+  @@unique([botId, platform])
 }

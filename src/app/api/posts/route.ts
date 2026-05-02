@@ -12,6 +12,15 @@ export async function GET(request: NextRequest) {
     where = { status: 'pending' };
   } else if (status === 'rejected') {
     where = { status: 'rejected' };
+  } else if (status === 'published') {
+    // Support both old and new schema
+    where = {
+      OR: [
+        { status: 'published' },
+        { tiktokPublished: true },
+        { instagramPublished: true }
+      ]
+    };
   } else {
     where = { status };
   }
