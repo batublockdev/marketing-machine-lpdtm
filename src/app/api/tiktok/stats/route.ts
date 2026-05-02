@@ -4,13 +4,13 @@ import { prisma } from '@/lib/prisma';
 // GET /api/tiktok/stats - Get published posts from database
 export async function GET(request: NextRequest) {
   try {
-    // Get published posts from database
+    // Get published TikTok posts from database
     const publishedPosts = await prisma.post.findMany({
       where: {
         platform: 'tiktok',
-        status: 'published'
+        tiktokPublished: true
       },
-      orderBy: { publishedAt: 'desc' },
+      orderBy: { tiktokPublishedAt: 'desc' },
       take: 50
     });
 
@@ -22,12 +22,8 @@ export async function GET(request: NextRequest) {
       posts: publishedPosts.map(post => ({
         id: post.id,
         caption: post.caption,
-        publishedUrl: post.publishedUrl,
-        views: post.views,
-        likes: post.likes,
-        comments: post.comments,
-        shares: post.shares,
-        publishedAt: post.publishedAt
+        publishedUrl: post.tiktokUrl,
+        publishedAt: post.tiktokPublishedAt
       }))
     });
   } catch (error: any) {
