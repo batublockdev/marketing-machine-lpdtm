@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders });
+}
+
 export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get('status') || 'pending';
 
@@ -32,9 +43,17 @@ export async function GET(request: NextRequest) {
     where = { status };
   }
 
-  const posts = await prisma.post.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-  });
-  return NextResponse.json(posts);
+  try {
+    const posts = await prisma.post.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return NextResponse.json({ success: true, posts }, { headers: corsHeaders });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500, headers: corsHeaders }
+    );
+  }
 }
