@@ -204,6 +204,11 @@ export default function Home() {
                         <p className="text-white text-sm line-clamp-2 mb-2">
                           {post.caption || 'Sin caption'}
                         </p>
+                        {post.targetAccount && (
+                          <p className="text-purple-400 text-xs mb-1">
+                            → @{post.targetAccount}
+                          </p>
+                        )}
                         <p className="text-gray-400 text-xs">
                           📅 {new Date(post.createdAt).toLocaleString('es-CO')}
                         </p>
