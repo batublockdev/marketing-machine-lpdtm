@@ -321,7 +321,11 @@ def get_rejected_posts(bot_id=None):
         url += f'?botId={bot_id}'
 
     response = requests.get(url)
-    return response.json()
+    data = response.json()
+
+    if data.get('success'):
+        return data['posts']
+    return []
 
 # Ejemplo:
 rejected = get_rejected_posts('bot-1')
@@ -383,7 +387,10 @@ def create_post(video_path, caption, tags):
         'tags': tags,
     })
 
-    return response.json()
+    data = response.json()
+    if data.get('success'):
+        return data['post']
+    raise Exception(data.get('error', 'Unknown error'))
 
 # 2. ESPERAR APROBACIÓN
 def wait_approval(post_id, timeout=3600):
@@ -509,10 +516,12 @@ if __name__ == "__main__":
 
 ## 🔗 API Endpoints
 
+> **Nota:** Todos los endpoints incluyen headers CORS (`Access-Control-Allow-Origin: *`) para permitir acceso desde bots externos.
+
 ### POST /api/submit
 Envía un nuevo post para aprobación.
 
-**Body:**
+**Request:**
 ```json
 {
   "botId": "bot-1",
@@ -525,22 +534,102 @@ Envía un nuevo post para aprobación.
 }
 ```
 
+**Response:**
+```json
+{
+  "success": true,
+  "post": {
+    "id": "uuid-del-post",
+    "botId": "bot-1",
+    "platform": "tiktok",
+    "targetAccount": "@mi_cuenta",
+    "status": "pending"
+  }
+}
+```
+
 ### GET /api/posts?status={status}
 Lista posts por estado.
+
+**Parámetros:**
+- `status`: `pending` (default), `approved`, `rejected`, `published`
+
+**Response:**
+```json
+{
+  "success": true,
+  "posts": [
+    {
+      "id": "uuid",
+      "botId": "bot-1",
+      "platform": "tiktok",
+      "targetAccount": "@mi_cuenta",
+      "status": "pending",
+      "caption": "Mi post!",
+      ...
+    }
+  ]
+}
+```
 
 ### GET /api/posts/{id}
 Obtiene detalles de un post específico.
 
+**Response:**
+```json
+{
+  "id": "uuid",
+  "botId": "bot-1",
+  "platform": "tiktok",
+  "targetAccount": "@mi_cuenta",
+  "status": "approved",
+  "tiktokPublished": false,
+  "instagramPublishReady": false,
+  ...
+}
+```
+
 ### DELETE /api/posts/{id}
 Elimina un post (usar después de corregir rechazados).
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Post deleted"
+}
+```
 
 ### GET /api/rejected?botId={botId}
 Obtiene posts rechazados con información completa para corregir.
 
+**Parámetros:**
+- `botId` (opcional): Filtrar por bot específico
+
+**Response:**
+```json
+{
+  "success": true,
+  "posts": [
+    {
+      "id": "uuid",
+      "botId": "bot-1",
+      "platform": "tiktok",
+      "targetAccount": "@mi_cuenta",
+      "videoPath": "/path/to/video.mp4",
+      "caption": "Mi post!",
+      "rejectReason": "Mejorar iluminación",
+      "createdAt": "2026-05-02T18:00:00Z",
+      "rejectedAt": "2026-05-02T18:30:00Z"
+    }
+  ]
+}
+```
+
 ### POST /api/publish
 Marca un post como listo para Instagram.
 
-**Body:**
+**Request:**
 ```json
 {
   "postId": "uuid",
@@ -548,16 +637,38 @@ Marca un post como listo para Instagram.
 }
 ```
 
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Post marked as ready for Instagram"
+}
+```
+
 ### PATCH /api/publish
 Confirma publicación de Instagram o TikTok.
 
-**Body:**
+**Request:**
 ```json
 {
   "postId": "uuid",
-  "platform": "instagram",  // o "tiktok"
+  "platform": "instagram",
   "platformPostId": "ABC123",
   "url": "https://instagram.com/p/ABC123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "post": {
+    "id": "uuid",
+    "instagramPublished": true,
+    "instagramPostId": "ABC123",
+    "instagramUrl": "https://instagram.com/p/ABC123",
+    "instagramPublishedAt": "2026-05-02T19:00:00Z"
+  }
 }
 ```
 
