@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   ],
   // Serve files from uploads directory
   serverExternalPackages: ['fs', 'path'],
+  // Ensure proper build output
+  experimental: {
+    // Enable if needed for stability
+  },
 };
 
 export default nextConfig;
