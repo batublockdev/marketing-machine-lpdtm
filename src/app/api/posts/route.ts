@@ -4,16 +4,23 @@ import prisma from '@/lib/db';
 export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get('status') || 'pending';
 
-  let where = {};
+  let where: any = {};
 
   if (status === 'approved') {
-    where = { status: 'approved' };
+    // Show both approved and published posts
+    where = {
+      OR: [
+        { status: 'approved' },
+        { status: 'published' },
+        { tiktokPublished: true },
+        { instagramPublished: true }
+      ]
+    };
   } else if (status === 'pending') {
     where = { status: 'pending' };
   } else if (status === 'rejected') {
     where = { status: 'rejected' };
   } else if (status === 'published') {
-    // Support both old and new schema
     where = {
       OR: [
         { status: 'published' },
