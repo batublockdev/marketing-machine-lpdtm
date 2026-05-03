@@ -12,7 +12,6 @@ interface Post {
   caption: string | null;
   tags?: string | null;
   status: string;
-  // Legacy fields
   platformPostId?: string | null;
   publishedUrl?: string | null;
   views?: number;
@@ -20,18 +19,15 @@ interface Post {
   shares?: number;
   comments?: number;
   publishedAt?: string | null;
-  // TikTok
   tiktokPublished: boolean;
   tiktokPostId?: string | null;
   tiktokUrl?: string | null;
   tiktokPublishedAt?: string | null;
-  // Instagram
   instagramPublished: boolean;
   instagramPostId?: string | null;
   instagramUrl?: string | null;
   instagramPublishedAt?: string | null;
   instagramPublishReady: boolean;
-  // Timestamps
   createdAt: string;
   approvedAt?: string | null;
   rejectReason?: string | null;
@@ -66,37 +62,29 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
   const [showTikTokOptions, setShowTikTokOptions] = useState(false);
   const [creatorInfo, setCreatorInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokTitle, setTiktokTitle] = useState('');
-  const [privacyLevel, setPrivacyLevel] = useState<string>('');
-  const [allowComment, setAllowComment] = useState(false);
-  const [allowDuet, setAllowDuet] = useState(false);
-  const [allowStitch, setAllowStitch] = useState(false);
 
-  // Instagram status
+  // Instagram publishing
   const [instagramLoading, setInstagramLoading] = useState(false);
 
-  // Parse media files
-  const allFiles = post.mediaFiles
-    ? JSON.parse(post.mediaFiles)
-    : [post.videoPath];
+  const [privacyLevel, setPrivacyLevel] = useState('PUBLIC_TO_EVERYONE');
+  const [allowComment, setAllowComment] = useState(true);
+  const [allowDuet, setAllowDuet] = useState(true);
+  const [allowStitch, setAllowStitch] = useState(true);
 
-  const currentFile = allFiles[currentIndex] || post.videoPath;
+  const canPublishTikTok = post.platform === 'tiktok' && post.status === 'approved' && !post.tiktokPublished;
+  const canPublishInstagram = post.platform === 'instagram' && post.status === 'approved' && !post.instagramPublished && !post.instagramPublishReady;
+  const isApproved = post.status === 'approved';
+  const isRejected = post.status === 'rejected';
+
+  const allFiles = post.mediaFiles ? JSON.parse(post.mediaFiles) : [post.videoPath];
+  const currentFile = allFiles[currentIndex] || allFiles[0];
+  const isCarousel = allFiles.length > 1;
+
   const ext = currentFile.split('.').pop()?.toLowerCase() || '';
   const isVideo = ['mp4', 'mov', 'webm', 'avi'].includes(ext);
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-  const isCarousel = allFiles.length > 1;
+
   const tags = post.tags ? JSON.parse(post.tags) : [];
-
-  const canApprove = post.status === 'pending' && onApprove;
-  const canReject = post.status === 'pending' && onReject;
-  const canPublishTikTok = post.status === 'approved' && !post.tiktokPublished && isVideo;
-  const canPublishInstagram = post.status === 'approved' && !post.instagramPublished;
-
-  useEffect(() => {
-    if (post.caption) {
-      const title = `${post.caption} ${tags.map((t: string) => `#${t}`).join(' ')}`;
-      setTiktokTitle(title.substring(0, 150));
-    }
-  }, [post.caption, tags]);
 
   useEffect(() => {
     if (showTikTokOptions && !creatorInfo) {
@@ -223,12 +211,12 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
       onClick={onClose}
     >
       <div
-        className="bg-gray-800 rounded-xl w-full max-w-4xl my-8 border border-gray-600"
+        className="bg-gray-800 rounded-xl w-full max-w-4xl my-8 border border-gray-600 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-600 bg-gray-900 rounded-t-xl">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-4 border-b border-gray-600 bg-gray-900 rounded-t-xl sticky top-0 z-10">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               post.platform === 'tiktok'
                 ? 'bg-pink-600 text-white'
@@ -236,9 +224,9 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
             }`}>
               {post.platform}
             </span>
-            <span className="text-gray-300 font-medium">{post.botId}</span>
+            <span className="text-gray-300 font-medium text-sm lg:text-base">{post.botId}</span>
             {post.targetAccount && (
-              <span className="text-xs text-gray-400">→ @{post.targetAccount}</span>
+              <span className="text-xs text-gray-400 hidden sm:inline">→ @{post.targetAccount}</span>
             )}
             {isCarousel && (
               <span className="text-xs text-gray-500">
@@ -255,21 +243,21 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
         </div>
 
         {/* Media */}
-        <div className="relative bg-black flex items-center justify-center" style={{ maxHeight: '50vh' }}>
+        <div className="relative bg-black flex items-center justify-center" style={{ minHeight: '200px', maxHeight: '40vh' }}>
           {isVideo ? (
             <video
               key={currentFile}
               src={`/api/media?path=${encodeURIComponent(currentFile)}`}
               controls
               className="max-w-full max-h-full"
-              style={{ maxHeight: '50vh' }}
+              style={{ maxHeight: '40vh' }}
             />
           ) : isImage ? (
             <img
               src={`/api/media?path=${encodeURIComponent(currentFile)}`}
               alt="Media"
               className="max-w-full max-h-full object-contain"
-              style={{ maxHeight: '50vh' }}
+              style={{ maxHeight: '40vh' }}
             />
           ) : (
             <div className="text-gray-400 text-center p-8">
@@ -282,13 +270,13 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); prevMedia(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center text-lg lg:text-xl"
               >
                 ←
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); nextMedia(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center text-lg lg:text-xl"
               >
                 →
               </button>
@@ -297,7 +285,7 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
                   <button
                     key={i}
                     onClick={(e) => { e.stopPropagation(); setCurrentIndex(i); }}
-                    className={`w-3 h-3 rounded-full transition ${
+                    className={`w-2 h-2 rounded-full transition ${
                       i === currentIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60'
                     }`}
                   />
@@ -308,13 +296,13 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
         </div>
 
         {/* Info */}
-        <div className="p-5 bg-gray-800 rounded-b-xl">
-          <p className="text-white text-lg mb-3">{post.caption || 'Sin caption'}</p>
+        <div className="p-4 lg:p-5 bg-gray-800 rounded-b-xl">
+          <p className="text-white text-base lg:text-lg mb-3">{post.caption || 'Sin caption'}</p>
 
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {tags.map((tag: string, i: number) => (
-                <span key={i} className="px-3 py-1 bg-gray-700 rounded-full text-sm text-cyan-400">
+                <span key={i} className="px-2 lg:px-3 py-1 bg-gray-700 rounded-full text-xs lg:text-sm text-cyan-400">
                   #{tag}
                 </span>
               ))}
@@ -323,7 +311,7 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
 
           {/* Publication status */}
           {(post.tiktokPublished || post.instagramPublished) && (
-            <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 mb-4">
+            <div className="bg-green-900/30 border border-green-600 rounded-lg p-3 lg:p-4 mb-4">
               <p className="text-green-400 font-medium mb-2">✓ Publicado en:</p>
               <div className="flex flex-wrap gap-4">
                 {post.tiktokPublished && (
@@ -372,7 +360,7 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
 
           {/* Publish status */}
           {publishStatus && (
-            <div className={`rounded-lg p-4 mb-4 ${
+            <div className={`rounded-lg p-3 lg:p-4 mb-4 text-sm lg:text-base ${
               publishStatus.includes('✅')
                 ? 'bg-green-900/30 border border-green-600'
                 : 'bg-red-900/30 border border-red-600'
@@ -383,219 +371,206 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
             </div>
           )}
 
-          <p className="text-gray-400 text-sm mb-5">
+          <p className="text-gray-400 text-xs lg:text-sm mb-4">
             📅 Creado: {new Date(post.createdAt).toLocaleString('es-CO')}
             {post.approvedAt && (
-              <span className="ml-4">✓ Aprobado: {new Date(post.approvedAt).toLocaleString('es-CO')}</span>
+              <span className="block sm:inline sm:ml-4 mt-1 sm:mt-0">✓ Aprobado: {new Date(post.approvedAt).toLocaleString('es-CO')}</span>
             )}
           </p>
 
           {/* TikTok Publishing Options */}
           {showTikTokOptions && canPublishTikTok && (
-            <div className="bg-gray-900 rounded-lg p-4 mb-4 border border-pink-600">
-              <h3 className="text-pink-400 font-medium mb-3">📱 Publicar en TikTok</h3>
+            <div className="bg-gray-900 rounded-lg p-4 mb-4 border border-gray-700">
+              <h3 className="text-white font-medium mb-3">Publicar en TikTok</h3>
 
               {creatorInfo && (
-                <div className="mb-4 text-sm text-gray-400">
-                  <p>Cuenta: <span className="text-white">@{creatorInfo.creator_username}</span></p>
-                  <p>Max duración: <span className="text-white">{creatorInfo.max_video_post_duration_sec}s</span></p>
+                <div className="mb-3 p-3 bg-gray-800 rounded text-sm">
+                  <p className="text-gray-300">
+                    <span className="text-gray-500">Cuenta:</span> @{creatorInfo.creator_username || 'N/A'}
+                  </p>
                 </div>
               )}
 
-              <div className="mb-4">
-                <label className="block text-white mb-2 text-sm">Título *</label>
-                <input
-                  type="text"
-                  value={tiktokTitle}
-                  onChange={(e) => setTiktokTitle(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white"
-                  placeholder="Título del video..."
-                  maxLength={150}
-                />
-                <p className="text-xs text-gray-500 mt-1">{tiktokTitle.length}/150 caracteres</p>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-white mb-2 text-sm">Privacidad *</label>
-                <select
-                  value={privacyLevel}
-                  onChange={(e) => setPrivacyLevel(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white"
-                >
-                  <option value="">Seleccionar privacidad...</option>
-                  {creatorInfo?.privacy_level_options?.map((level) => (
-                    <option key={level} value={level}>
-                      {level === 'PUBLIC_TO_EVERYONE' && '🌍 Público (Todos)'}
-                      {level === 'MUTUAL_FOLLOW_FRIENDS' && '👥 Solo amigos'}
-                      {level === 'SELF_ONLY' && '🔒 Solo yo'}
-                      {!['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'SELF_ONLY'].includes(level) && level}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-4 space-y-2">
-                <label className="flex items-center gap-2 text-sm">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-gray-300 text-sm block mb-1">Título *</label>
                   <input
-                    type="checkbox"
-                    checked={allowComment}
-                    onChange={(e) => setAllowComment(e.target.checked)}
-                    disabled={creatorInfo?.comment_disabled}
-                    className="w-4 h-4"
+                    type="text"
+                    value={tiktokTitle}
+                    onChange={(e) => setTiktokTitle(e.target.value)}
+                    placeholder="Título del video"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm lg:text-base"
+                    maxLength={150}
                   />
-                  <span className={creatorInfo?.comment_disabled ? 'text-gray-500' : 'text-white'}>
-                    💬 Permitir comentarios
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={allowDuet}
-                    onChange={(e) => setAllowDuet(e.target.checked)}
-                    disabled={creatorInfo?.duet_disabled}
-                    className="w-4 h-4"
-                  />
-                  <span className={creatorInfo?.duet_disabled ? 'text-gray-500' : 'text-white'}>
-                    🎭 Permitir Duet
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={allowStitch}
-                    onChange={(e) => setAllowStitch(e.target.checked)}
-                    disabled={creatorInfo?.stitch_disabled}
-                    className="w-4 h-4"
-                  />
-                  <span className={creatorInfo?.stitch_disabled ? 'text-gray-500' : 'text-white'}>
-                    ✂️ Permitir Stitch
-                  </span>
-                </label>
-              </div>
+                  <p className="text-gray-500 text-xs mt-1">{tiktokTitle.length}/150</p>
+                </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handlePublishTikTok}
-                  disabled={publishing || !privacyLevel || !tiktokTitle.trim()}
-                  className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 px-6 py-3 rounded-lg font-medium transition text-white"
-                >
-                  {publishing ? 'Publicando...' : 'Publicar'}
-                </button>
-                <button
-                  onClick={() => setShowTikTokOptions(false)}
-                  className="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg font-medium transition text-white"
-                >
-                  Cancelar
-                </button>
+                <div>
+                  <label className="text-gray-300 text-sm block mb-1">Privacidad</label>
+                  <select
+                    value={privacyLevel}
+                    onChange={(e) => setPrivacyLevel(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm lg:text-base"
+                  >
+                    {creatorInfo?.privacy_level_options?.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    )) || (
+                      <>
+                        <option value="PUBLIC_TO_EVERYONE">Público</option>
+                        <option value="MUTUAL_FOLLOW_FRIENDS">Solo amigos</option>
+                        <option value="SELF_ONLY">Solo yo</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-2 text-gray-300 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={allowComment}
+                      onChange={(e) => setAllowComment(e.target.checked)}
+                      className="rounded"
+                    />
+                    Comentarios
+                  </label>
+                  <label className="flex items-center gap-2 text-gray-300 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={allowDuet}
+                      onChange={(e) => setAllowDuet(e.target.checked)}
+                      className="rounded"
+                    />
+                    Duet
+                  </label>
+                  <label className="flex items-center gap-2 text-gray-300 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={allowStitch}
+                      onChange={(e) => setAllowStitch(e.target.checked)}
+                      className="rounded"
+                    />
+                    Stitch
+                  </label>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handlePublishTikTok}
+                    disabled={publishing}
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg disabled:opacity-50"
+                  >
+                    {publishing ? 'Publicando...' : 'Publicar en TikTok'}
+                  </button>
+                  <button
+                    onClick={() => setShowTikTokOptions(false)}
+                    className="sm:w-auto px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Reject Form */}
-          {showRejectForm && canReject ? (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-white mb-2 font-medium">
-                  📝 Razón del rechazo
-                </label>
+          {/* Instagram Ready Status */}
+          {post.instagramPublishReady && !post.instagramPublished && (
+            <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-3 lg:p-4 mb-4">
+              <p className="text-yellow-400 font-medium">⏳ Listo para Instagram</p>
+              <p className="text-yellow-300 text-sm mt-1">El bot publicará este contenido automáticamente.</p>
+            </div>
+          )}
+
+          {/* Rejection reason */}
+          {isRejected && post.rejectReason && (
+            <div className="bg-red-900/30 border border-red-600 rounded-lg p-3 lg:p-4 mb-4">
+              <p className="text-red-400 font-medium mb-1">Razón del rechazo:</p>
+              <p className="text-gray-300">{post.rejectReason}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            {/* Approve/Reject buttons for pending posts */}
+            {post.status === 'pending' && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handleApprove}
+                  disabled={loading}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg disabled:opacity-50 text-sm lg:text-base"
+                >
+                  {loading ? 'Aprobando...' : '✓ Aprobar'}
+                </button>
+                <button
+                  onClick={() => setShowRejectForm(!showRejectForm)}
+                  className="sm:w-auto px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm lg:text-base"
+                >
+                  ✗ Rechazar
+                </button>
+              </div>
+            )}
+
+            {/* Reject form */}
+            {showRejectForm && (
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="El bot usará esta razón para mejorar el contenido..."
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-red-500"
+                  placeholder="Razón del rechazo (obligatoria)"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white mb-3 text-sm lg:text-base"
                   rows={3}
-                  autoFocus
                 />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleReject}
+                    disabled={loading || !rejectReason.trim()}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg disabled:opacity-50 text-sm lg:text-base"
+                  >
+                    {loading ? 'Rechazando...' : 'Confirmar rechazo'}
+                  </button>
+                  <button
+                    onClick={() => setShowRejectForm(false)}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm lg:text-base"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleReject}
-                  disabled={!rejectReason.trim() || loading}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 px-6 py-3 rounded-lg font-medium transition text-white"
-                >
-                  {loading ? 'Enviando...' : '✗ Confirmar rechazo'}
-                </button>
-                <button
-                  onClick={() => setShowRejectForm(false)}
-                  className="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg font-medium transition text-white"
-                >
-                  Cancelar
-                </button>
+            )}
+
+            {/* Publish buttons for approved posts */}
+            {isApproved && !post.tiktokPublished && !post.instagramPublished && !post.instagramPublishReady && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                {post.platform === 'tiktok' && (
+                  <button
+                    onClick={() => setShowTikTokOptions(true)}
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-sm lg:text-base"
+                  >
+                    <span>📱</span>
+                    <span>Publicar en TikTok</span>
+                  </button>
+                )}
+                {post.platform === 'instagram' && (
+                  <button
+                    onClick={handleInstagramReady}
+                    disabled={instagramLoading}
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-700 hover:to-orange-600 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-sm lg:text-base"
+                  >
+                    <span>📸</span>
+                    <span>{instagramLoading ? 'Marcando...' : 'Listo para Instagram'}</span>
+                  </button>
+                )}
               </div>
-            </div>
-          ) : canApprove && canReject ? (
-            /* Approve/Reject buttons */
-            <div className="flex gap-3">
-              <button
-                onClick={handleApprove}
-                disabled={loading}
-                className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 px-6 py-4 rounded-lg font-medium transition text-white text-lg"
-              >
-                ✓ Aprobar
-              </button>
-              <button
-                onClick={() => setShowRejectForm(true)}
-                disabled={loading}
-                className="flex-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 px-6 py-4 rounded-lg font-medium transition text-white text-lg"
-              >
-                ✗ Rechazar
-              </button>
-            </div>
-          ) : post.status === 'approved' ? (
-            /* TikTok & Instagram buttons */
-            <div className="space-y-3">
-              {/* TikTok button */}
-              <button
-                onClick={() => setShowTikTokOptions(true)}
-                disabled={!canPublishTikTok || post.tiktokPublished}
-                className={`w-full px-6 py-4 rounded-lg font-medium transition text-white text-lg flex items-center justify-center gap-3 ${
-                  post.tiktokPublished
-                    ? 'bg-green-600 cursor-default'
-                    : canPublishTikTok
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700'
-                      : 'bg-gray-600 cursor-not-allowed'
-                }`}
-              >
-                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
-                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.73 2.89 2.89 0 0 1 2.31-4.24 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 15.69a6.34 6.34 0 0 0 10.86 4.49l.12-.11a6.33 6.33 0 0 0 1.86-4.48V9.13a8.16 8.16 0 0 0 4.1 1.13V6.84a4.81 4.81 0 0 1-1-.15l-.35-.21z"/>
-                </svg>
-                {post.tiktokPublished ? '✓ Publicado en TikTok' : 'Publicar en TikTok'}
-              </button>
+            )}
 
-              {/* Instagram button */}
-              <button
-                onClick={handleInstagramReady}
-                disabled={!canPublishInstagram || post.instagramPublished || post.instagramPublishReady}
-                className={`w-full px-6 py-4 rounded-lg font-medium transition text-white text-lg flex items-center justify-center gap-3 ${
-                  post.instagramPublished
-                    ? 'bg-green-600 cursor-default'
-                    : post.instagramPublishReady
-                      ? 'bg-yellow-600 cursor-default'
-                      : 'bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-700 hover:to-orange-600'
-                }`}
-              >
-                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                </svg>
-                {post.instagramPublished
-                  ? '✓ Publicado en Instagram'
-                  : post.instagramPublishReady
-                    ? '⏳ Listo para Instagram (esperando bot)'
-                    : 'Marcar para Instagram'
-                }
-              </button>
-
-              {post.instagramPublishReady && !post.instagramPublished && (
-                <p className="text-xs text-yellow-400 text-center">
-                  El bot detectará este post y lo publicará en Instagram
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="text-center text-gray-400 py-4">
-              {post.status === 'rejected' && '❌ Este post fue rechazado'}
-            </div>
-          )}
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="w-full mt-2 py-3 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm lg:text-base"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     </div>

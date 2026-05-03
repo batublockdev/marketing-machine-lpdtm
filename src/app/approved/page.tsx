@@ -76,7 +76,7 @@ export default function ApprovedPage() {
     return (
       <div className="flex min-h-screen bg-gray-950">
         <Sidebar />
-        <main className="ml-64 flex-1 p-8">
+        <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-400">Cargando...</div>
           </div>
@@ -88,19 +88,19 @@ export default function ApprovedPage() {
   return (
     <div className="flex min-h-screen bg-gray-950">
       <Sidebar />
-      <main className="ml-64 flex-1 p-8">
-        <h1 className="text-2xl font-bold mb-6 text-white">✅ Contenido aprobado</h1>
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-8">
+        <h1 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">✅ Contenido aprobado</h1>
 
         {Object.keys(grouped).length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">📭</div>
+          <div className="text-center py-12 lg:py-20">
+            <div className="text-5xl lg:text-6xl mb-4">📭</div>
             <p className="text-gray-400 text-lg">No hay posts aprobados</p>
           </div>
         ) : (
           Object.entries(grouped).map(([botId, botPosts]) => (
-            <div key={botId} className="mb-8">
-              <h2 className="text-lg font-semibold mb-4 text-purple-400">{botId}</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div key={botId} className="mb-6 lg:mb-8">
+              <h2 className="text-base lg:text-lg font-semibold mb-3 lg:mb-4 text-purple-400">{botId}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
                 {botPosts.map((post) => {
                   const previewPath = getPreviewMedia(post);
                   const previewIsVideo = isVideo(previewPath);

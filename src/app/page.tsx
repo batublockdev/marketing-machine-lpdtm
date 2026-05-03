@@ -14,7 +14,6 @@ interface Post {
   caption: string | null;
   tags: string | null;
   status: string;
-  // Legacy fields
   platformPostId?: string | null;
   publishedUrl?: string | null;
   views?: number;
@@ -22,7 +21,6 @@ interface Post {
   shares?: number;
   comments?: number;
   publishedAt?: string | null;
-  // TikTok
   tiktokPublished: boolean;
   instagramPublished: boolean;
   instagramPublishReady: boolean;
@@ -85,7 +83,6 @@ export default function Home() {
     return acc;
   }, {} as Record<string, Post[]>);
 
-  // Get preview media for a post
   const getPreviewMedia = (post: Post) => {
     const files = post.mediaFiles ? JSON.parse(post.mediaFiles) : [post.videoPath];
     return files[0];
@@ -100,7 +97,7 @@ export default function Home() {
     return (
       <div className="flex min-h-screen bg-gray-950">
         <Sidebar />
-        <main className="ml-64 flex-1 p-8">
+        <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-400">Cargando...</div>
           </div>
@@ -112,15 +109,15 @@ export default function Home() {
   return (
     <div className="flex min-h-screen bg-gray-950">
       <Sidebar />
-      <main className="ml-64 flex-1 p-8">
-        <h1 className="text-2xl font-bold mb-6 text-white">📬 Pendientes de aprobación</h1>
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-8">
+        <h1 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">📬 Pendientes de aprobación</h1>
 
         {/* Filters */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-wrap gap-2 lg:gap-4 mb-4 lg:mb-6">
           <select 
             value={filterBot || ''} 
             onChange={(e) => setFilterBot(e.target.value || null)}
-            className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+            className="bg-gray-800 border border-gray-600 rounded-lg px-3 lg:px-4 py-2 text-white text-sm lg:text-base focus:outline-none focus:border-purple-500"
           >
             <option value="">Todos los bots</option>
             {bots.map(bot => (
@@ -130,9 +127,9 @@ export default function Home() {
           <select 
             value={filterPlatform || ''} 
             onChange={(e) => setFilterPlatform(e.target.value || null)}
-            className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+            className="bg-gray-800 border border-gray-600 rounded-lg px-3 lg:px-4 py-2 text-white text-sm lg:text-base focus:outline-none focus:border-purple-500"
           >
-            <option value="">Todas las plataformas</option>
+            <option value="">Todas</option>
             {platforms.map(p => (
               <option key={p} value={p}>{p}</option>
             ))}
@@ -140,15 +137,15 @@ export default function Home() {
         </div>
 
         {Object.keys(grouped).length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">📭</div>
+          <div className="text-center py-12 lg:py-20">
+            <div className="text-5xl lg:text-6xl mb-4">📭</div>
             <p className="text-gray-400 text-lg">No hay posts pendientes</p>
             <p className="text-gray-500 text-sm mt-2">Los bots enviarán contenido aquí automáticamente</p>
           </div>
         ) : (
           Object.entries(grouped).map(([key, groupPosts]) => (
-            <div key={key} className="mb-8">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <div key={key} className="mb-6 lg:mb-8">
+              <h2 className="text-base lg:text-lg font-semibold mb-3 lg:mb-4 flex items-center gap-2">
                 <span className={`px-3 py-1 rounded text-sm font-medium ${
                   groupPosts[0].platform === 'tiktok' 
                     ? 'bg-pink-600 text-white' 
@@ -159,7 +156,7 @@ export default function Home() {
                 <span className="text-purple-400">{groupPosts[0].botId}</span>
                 <span className="text-gray-500 text-sm font-normal">({groupPosts.length})</span>
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
                 {groupPosts.map((post) => {
                   const previewPath = getPreviewMedia(post);
                   const previewIsVideo = isVideo(previewPath);
@@ -194,13 +191,13 @@ export default function Home() {
                         )}
                         {previewIsVideo && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="bg-black/50 rounded-full w-12 h-12 flex items-center justify-center">
-                              <span className="text-2xl">▶</span>
+                            <div className="bg-black/50 rounded-full w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center">
+                              <span className="text-xl lg:text-2xl">▶</span>
                             </div>
                           </div>
                         )}
                       </div>
-                      <div className="p-4">
+                      <div className="p-3 lg:p-4">
                         <p className="text-white text-sm line-clamp-2 mb-2">
                           {post.caption || 'Sin caption'}
                         </p>
