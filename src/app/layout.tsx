@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Marketing Machine LPDTM",
-  description: "Content approval dashboard",
+  title: "LPDTM Marketing Machine",
+  description: "Social media content management and approval platform",
 };
 
 export default function RootLayout({
