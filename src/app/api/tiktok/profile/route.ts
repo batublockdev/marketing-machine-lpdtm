@@ -85,7 +85,7 @@ async function refreshTikTokToken(refreshToken: string): Promise<boolean> {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        client_key: process.env.TIKTOK_CLIENT_KEY || 'sbawr4wwhktupjwwma',
+        client_key: process.env.TIKTOK_CLIENT_KEY || 'awc2yu9d4jywgi8h',
         client_secret: process.env.TIKTOK_CLIENT_SECRET || '2amlU7IREzZL5qAT6s4LOpiF2km7pQtV',
         grant_type: 'refresh_token',
         refresh_token: refreshToken

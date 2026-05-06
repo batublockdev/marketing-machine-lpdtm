@@ -6,7 +6,7 @@ import path from 'path';
 const prisma = new PrismaClient();
 
 const TIKTOK_CONFIG = {
-  client_key: process.env.TIKTOK_CLIENT_KEY || 'sbawr4wwhktupjwwma',
+  client_key: process.env.TIKTOK_CLIENT_KEY || 'awc2yu9d4jywgi8h',
   client_secret: process.env.TIKTOK_CLIENT_SECRET || '2amlU7IREzZL5qAT6s4LOpiF2km7pQtV',
 };
 

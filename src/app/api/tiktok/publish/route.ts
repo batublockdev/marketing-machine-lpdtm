@@ -6,8 +6,8 @@ import path from 'path';
 const prisma = new PrismaClient();
 
 const TIKTOK_CONFIG = {
-  client_key: process.env.TIKTOK_CLIENT_KEY || 'sbawr4wwhktupjwwma',
-  client_secret: process.env.TIKTOK_CLIENT_SECRET || '2amlU7IREzZL5qAT6s4LOpiF2km7pQtV',
+  client_key: process.env.TIKTOK_CLIENT_KEY || 'awc2yu9d4jywgi8h',
+  client_secret: process.env.TIKTOK_CLIENT_SECRET || 'lKW0Zu1zDOpnifeSuDUjd6MPlw717bRU',
 };
 
 // POST /api/tiktok/publish - Publish a video to TikTok
@@ -193,8 +193,23 @@ export async function POST(request: NextRequest) {
     const statusData = await statusResponse.json();
     console.log('Status response:', JSON.stringify(statusData, null, 2));
 
-    // Update post in database
-    if (postId) {
+    // Check if TikTok rejected the video
+    const publishStatus = statusData.data?.status;
+    const failReason = statusData.data?.fail_reason;
+
+    if (publishStatus === 'FAILED' || failReason) {
+      return NextResponse.json({
+        success: false,
+        error: failReason || 'TikTok rejected the video',
+        publish_id,
+        status: publishStatus,
+        details: statusData,
+        tiktokGuidelines: 'https://developers.tiktok.com/doc/content-sharing-guidelines/'
+      }, { status: 400 });
+    }
+
+    // Update post in database only if PUBLISH_COMPLETE
+    if (postId && publishStatus === 'PUBLISH_COMPLETE') {
       const tiktokUrl = `https://www.tiktok.com/@${token.openId}/video/${publish_id}`;
 
       await prisma.post.update({
@@ -226,8 +241,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       publish_id,
-      status: statusData.data?.status || 'PROCESSING',
-      message: 'Video uploaded successfully. It may take a few minutes to appear on your profile.',
+      status: publishStatus || 'PROCESSING',
+      message: publishStatus === 'PUBLISH_COMPLETE' 
+        ? 'Video published successfully!'
+        : 'Video uploaded. It may take a few minutes to appear on your profile.',
       creator_info: creatorData.data
     });
 

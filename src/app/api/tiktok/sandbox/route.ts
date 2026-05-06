@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // TikTok OAuth configuration - Sandbox mode
 const TIKTOK_CONFIG = {
-  client_key: process.env.TIKTOK_CLIENT_KEY || 'sbawr4wwhktupjwwma',
+  client_key: process.env.TIKTOK_CLIENT_KEY || 'awc2yu9d4jywgi8h',
   client_secret: process.env.TIKTOK_CLIENT_SECRET || '2amlU7IREzZL5qAT6s4LOpiF2km7pQtV',
   redirect_uri: process.env.TIKTOK_REDIRECT_URI || 'https://police-features-vast-bring.trycloudflare.com/api/tiktok/callback',
   // Sandbox with Content Posting API scopes

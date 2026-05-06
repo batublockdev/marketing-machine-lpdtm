@@ -4,9 +4,9 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const TIKTOK_CONFIG = {
-  client_key: process.env.TIKTOK_CLIENT_KEY || 'sbawr4wwhktupjwwma',
-  client_secret: process.env.TIKTOK_CLIENT_SECRET || '2amlU7IREzZL5qAT6s4LOpiF2km7pQtV',
-  redirect_uri: process.env.TIKTOK_REDIRECT_URI || 'https://timer-silence-foto-thomson.trycloudflare.com/api/tiktok/callback',
+  client_key: process.env.TIKTOK_CLIENT_KEY || 'awc2yu9d4jywgi8h',
+  client_secret: process.env.TIKTOK_CLIENT_SECRET || 'lKW0Zu1zDOpnifeSuDUjd6MPlw717bRU',
+  redirect_uri: process.env.TIKTOK_REDIRECT_URI || 'https://marketing-machine-lpdtm-production.up.railway.app/api/tiktok/callback',
 };
 
 // GET /api/tiktok/callback - Handle OAuth callback

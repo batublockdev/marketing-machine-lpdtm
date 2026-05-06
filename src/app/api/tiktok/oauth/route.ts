@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // TikTok OAuth configuration
 const TIKTOK_CONFIG = {
-  client_key: process.env.TIKTOK_CLIENT_KEY || 'sbawr4wwhktupjwwma',
-  client_secret: process.env.TIKTOK_CLIENT_SECRET || '2amlU7IREzZL5qAT6s4LOpiF2km7pQtV',
-  redirect_uri: process.env.TIKTOK_REDIRECT_URI || 'https://police-features-vast-bring.trycloudflare.com/api/tiktok/callback',
+  client_key: process.env.TIKTOK_CLIENT_KEY || 'awc2yu9d4jywgi8h',
+  client_secret: process.env.TIKTOK_CLIENT_SECRET || 'lKW0Zu1zDOpnifeSuDUjd6MPlw717bRU',
+  redirect_uri: process.env.TIKTOK_REDIRECT_URI || 'https://marketing-machine-lpdtm-production.up.railway.app/api/tiktok/callback',
   // Scopes for Content Posting API
   // video.upload = upload as draft
   // video.publish = direct post (requires Direct Post enabled)

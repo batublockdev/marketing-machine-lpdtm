@@ -71,7 +71,11 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
   const [allowDuet, setAllowDuet] = useState(true);
   const [allowStitch, setAllowStitch] = useState(true);
 
-  const canPublishTikTok = post.platform === 'tiktok' && post.status === 'approved' && !post.tiktokPublished;
+  // Check if video file is actually a video (not image)
+  const videoExt = post.videoPath.split('.').pop()?.toLowerCase() || '';
+  const isActualVideo = ['mp4', 'mov', 'webm', 'avi'].includes(videoExt);
+  
+  const canPublishTikTok = post.platform === 'tiktok' && post.status === 'approved' && !post.tiktokPublished && isActualVideo;
   const canPublishInstagram = post.platform === 'instagram' && post.status === 'approved' && !post.instagramPublished && !post.instagramPublishReady;
   const isApproved = post.status === 'approved';
   const isRejected = post.status === 'rejected';
@@ -306,6 +310,14 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
                   #{tag}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Warning for non-video files trying to publish to TikTok */}
+          {post.platform === 'tiktok' && post.status === 'approved' && !post.tiktokPublished && !isActualVideo && (
+            <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-3 lg:p-4 mb-4">
+              <p className="text-yellow-400 font-medium">⚠️ Este archivo no es un video</p>
+              <p className="text-yellow-300 text-sm mt-1">TikTok solo acepta videos (.mp4, .mov, .webm, .avi). Este post tiene un archivo .{videoExt}</p>
             </div>
           )}
 
