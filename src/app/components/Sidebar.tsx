@@ -139,6 +139,27 @@ export default function Sidebar() {
             ))}
           </nav>
 
+          {/* Legal Links */}
+          <div className="mt-6 lg:mt-8 pt-6 lg:pt-8 border-t border-gray-800">
+            <h3 className="text-xs uppercase text-gray-500 mb-3 font-medium">Legal</h3>
+            <div className="space-y-2">
+              <Link
+                href="/terms"
+                className="flex items-center gap-2 text-gray-400 hover:text-white text-sm transition"
+              >
+                <span>📄</span>
+                <span>Terms of Service</span>
+              </Link>
+              <Link
+                href="/privacy"
+                className="flex items-center gap-2 text-gray-400 hover:text-white text-sm transition"
+              >
+                <span>🔒</span>
+                <span>Privacy Policy</span>
+              </Link>
+            </div>
+          </div>
+
           {/* TikTok Connection */}
           <div className="mt-6 lg:mt-8 pt-6 lg:pt-8 border-t border-gray-800">
             <h3 className="text-xs uppercase text-gray-500 mb-3 font-medium">TikTok API</h3>
