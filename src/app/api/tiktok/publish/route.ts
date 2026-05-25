@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       allowComment = false,
       allowDuet = false,
       allowStitch = false,
+      commercialContent = null,
     } = body;
 
     if (!title || !privacyLevel) {
@@ -116,6 +117,24 @@ export async function POST(request: NextRequest) {
     // Initialize video upload
     console.log('Initializing TikTok upload...');
 
+    // Build post_info according to TikTok UX Guidelines
+    const postInfo: any = {
+      title: title,
+      privacy_level: privacyLevel,
+      disable_duet: !allowDuet,
+      disable_comment: !allowComment,
+      disable_stitch: !allowStitch,
+      video_cover_timestamp_ms: 1000
+    };
+
+    // Add commercial content disclosure if provided
+    if (commercialContent) {
+      postInfo.content_disclosure = {
+        brand_organic: commercialContent.yourBrand || false,
+        branded_content: commercialContent.brandedContent || false
+      };
+    }
+
     const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
       method: 'POST',
       headers: {
@@ -123,14 +142,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json; charset=UTF-8'
       },
       body: JSON.stringify({
-        post_info: {
-          title: title,
-          privacy_level: privacyLevel,
-          disable_duet: !allowDuet,
-          disable_comment: !allowComment,
-          disable_stitch: !allowStitch,
-          video_cover_timestamp_ms: 1000
-        },
+        post_info: postInfo,
         source_info: {
           source: 'FILE_UPLOAD',
           video_size: videoSize,

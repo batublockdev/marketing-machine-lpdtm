@@ -41,6 +41,7 @@ interface TikTokCreatorInfo {
   comment_disabled?: boolean;
   duet_disabled?: boolean;
   stitch_disabled?: boolean;
+  can_make_more_posts?: boolean;
 }
 
 interface PostModalProps {
@@ -66,15 +67,24 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
   // Instagram publishing
   const [instagramLoading, setInstagramLoading] = useState(false);
 
-  const [privacyLevel, setPrivacyLevel] = useState('PUBLIC_TO_EVERYONE');
-  const [allowComment, setAllowComment] = useState(true);
-  const [allowDuet, setAllowDuet] = useState(true);
-  const [allowStitch, setAllowStitch] = useState(true);
+  // TikTok UX Guidelines - NO DEFAULT VALUES
+  const [privacyLevel, setPrivacyLevel] = useState<string>(''); // NO DEFAULT
+  const [allowComment, setAllowComment] = useState(false); // NO DEFAULT - unchecked
+  const [allowDuet, setAllowDuet] = useState(false); // NO DEFAULT - unchecked
+  const [allowStitch, setAllowStitch] = useState(false); // NO DEFAULT - unchecked
+
+  // TikTok UX Guidelines - Commercial Content Disclosure
+  const [commercialContentEnabled, setCommercialContentEnabled] = useState(false); // OFF by default
+  const [yourBrand, setYourBrand] = useState(false);
+  const [brandedContent, setBrandedContent] = useState(false);
+
+  // User consent
+  const [userConsent, setUserConsent] = useState(false);
 
   // Check if video file is actually a video (not image)
   const videoExt = post.videoPath.split('.').pop()?.toLowerCase() || '';
   const isActualVideo = ['mp4', 'mov', 'webm', 'avi'].includes(videoExt);
-  
+
   const canPublishTikTok = post.platform === 'tiktok' && post.status === 'approved' && !post.tiktokPublished && isActualVideo;
   const canPublishInstagram = post.platform === 'instagram' && post.status === 'approved' && !post.instagramPublished && !post.instagramPublishReady;
   const isApproved = post.status === 'approved';
@@ -88,6 +98,9 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
   const isVideo = ['mp4', 'mov', 'webm', 'avi'].includes(ext);
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
 
+  // Check if this is a photo post (for UX guidelines - no Duet/Stitch)
+  const isPhotoPost = isImage || !isActualVideo;
+
   const tags = post.tags ? JSON.parse(post.tags) : [];
 
   useEffect(() => {
@@ -96,6 +109,13 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
     }
   }, [showTikTokOptions]);
 
+  // Get video duration (simplified - you may want to use a proper video element)
+  const getVideoDuration = (): number => {
+    // In production, you'd read this from the video file
+    // For now, return 0 (no validation)
+    return 0;
+  };
+
   const fetchCreatorInfo = async () => {
     try {
       const response = await fetch('/api/tiktok/creator-info');
@@ -103,9 +123,7 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
 
       if (data.success) {
         setCreatorInfo(data.creator);
-        if (data.creator.privacy_level_options?.length > 0) {
-          setPrivacyLevel(data.creator.privacy_level_options[0]);
-        }
+        // DO NOT set default privacy level - user must select
       } else {
         setPublishStatus(`❌ ${data.error || 'Failed to get creator info'}`);
       }
@@ -127,16 +145,80 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
     setLoading(false);
   };
 
-  const handlePublishTikTok = async () => {
-    if (!privacyLevel) {
-      setPublishStatus('❌ Debes seleccionar un nivel de privacidad');
-      return;
+  // Generate declaration based on commercial content settings
+  const getDeclarationText = (): string => {
+    if (commercialContentEnabled && brandedContent) {
+      return "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation.";
     }
+    return "By posting, you agree to TikTok's Music Usage Confirmation.";
+  };
 
-    if (!tiktokTitle.trim()) {
-      setPublishStatus('❌ El título es requerido');
-      return;
+  // Check if publish button should be disabled
+  const isPublishDisabled = (): boolean => {
+    // Must have privacy level selected
+    if (!privacyLevel) return true;
+
+    // Must have title
+    if (!tiktokTitle.trim()) return true;
+
+    // Must have user consent
+    if (!userConsent) return true;
+
+    // If commercial content toggle is ON, must select at least one option
+    if (commercialContentEnabled && !yourBrand && !brandedContent) return true;
+
+    // Check if creator can make more posts
+    if (creatorInfo?.can_make_more_posts === false) return true;
+
+    return false;
+  };
+
+  // Check if "SELF_ONLY" (Only me) should be disabled due to Branded Content
+  const isOnlyMeDisabled = (): boolean => {
+    return commercialContentEnabled && brandedContent;
+  };
+
+  // Handle privacy level change with auto-switch for branded content
+  const handlePrivacyChange = (value: string) => {
+    // If trying to select SELF_ONLY while branded content is checked, prevent it
+    if (value === 'SELF_ONLY' && brandedContent && commercialContentEnabled) {
+      return; // Don't allow
     }
+    setPrivacyLevel(value);
+  };
+
+  // Auto-switch privacy when branded content is selected while on SELF_ONLY
+  useEffect(() => {
+    if (commercialContentEnabled && brandedContent && privacyLevel === 'SELF_ONLY') {
+      // Auto-switch to first non-private option
+      const publicOption = creatorInfo?.privacy_level_options?.find(opt => opt !== 'SELF_ONLY');
+      if (publicOption) {
+        setPrivacyLevel(publicOption);
+        setPublishStatus('⚠️ Privacidad cambiada automáticamente: Branded content no puede ser privado.');
+      }
+    }
+  }, [commercialContentEnabled, brandedContent, privacyLevel, creatorInfo]);
+
+  // Handle commercial content toggle
+  const handleCommercialToggle = (enabled: boolean) => {
+    setCommercialContentEnabled(enabled);
+    if (!enabled) {
+      setYourBrand(false);
+      setBrandedContent(false);
+    }
+  };
+
+  // Get commercial content label preview
+  const getCommercialLabel = (): string | null => {
+    if (!commercialContentEnabled) return null;
+    if (yourBrand && brandedContent) return "Your photo/video will be labeled as 'Paid partnership'";
+    if (brandedContent) return "Your photo/video will be labeled as 'Paid partnership'";
+    if (yourBrand) return "Your photo/video will be labeled as 'Promotional content'";
+    return null;
+  };
+
+  const handlePublishTikTok = async () => {
+    if (isPublishDisabled()) return;
 
     setPublishing(true);
     setPublishStatus(null);
@@ -152,14 +234,18 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
           privacyLevel: privacyLevel,
           allowComment: allowComment,
           allowDuet: allowDuet,
-          allowStitch: allowStitch
+          allowStitch: allowStitch,
+          commercialContent: commercialContentEnabled ? {
+            yourBrand,
+            brandedContent
+          } : null
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setPublishStatus(`✅ Video enviado a TikTok! Estado: ${data.status}`);
+        setPublishStatus(`✅ Video enviado a TikTok! Puede tomar unos minutos en aparecer en tu perfil.`);
         setShowTikTokOptions(false);
         setTimeout(() => window.location.reload(), 3000);
       } else {
@@ -373,11 +459,11 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
           {/* Publish status */}
           {publishStatus && (
             <div className={`rounded-lg p-3 lg:p-4 mb-4 text-sm lg:text-base ${
-              publishStatus.includes('✅')
+              publishStatus.includes('✅') || publishStatus.includes('⚠️')
                 ? 'bg-green-900/30 border border-green-600'
                 : 'bg-red-900/30 border border-red-600'
             }`}>
-              <p className={publishStatus.includes('✅') ? 'text-green-400' : 'text-red-400'}>
+              <p className={publishStatus.includes('✅') || publishStatus.includes('⚠️') ? 'text-green-400' : 'text-red-400'}>
                 {publishStatus}
               </p>
             </div>
@@ -390,93 +476,271 @@ export default function PostModal({ post, onClose, onApprove, onReject }: PostMo
             )}
           </p>
 
-          {/* TikTok Publishing Options */}
+          {/* TikTok Publishing Options - Following UX Guidelines */}
           {showTikTokOptions && canPublishTikTok && (
             <div className="bg-gray-900 rounded-lg p-4 mb-4 border border-gray-700">
-              <h3 className="text-white font-medium mb-3">Publicar en TikTok</h3>
+              <h3 className="text-white font-medium mb-3">📱 Publicar en TikTok</h3>
 
+              {/* Punto 1: Creator Info */}
               {creatorInfo && (
-                <div className="mb-3 p-3 bg-gray-800 rounded text-sm">
-                  <p className="text-gray-300">
-                    <span className="text-gray-500">Cuenta:</span> @{creatorInfo.creator_username || 'N/A'}
-                  </p>
+                <div className="mb-4 p-3 bg-gray-800 rounded text-sm border border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-gray-400">Cuenta:</span>
+                    <span className="text-white font-medium">@{creatorInfo.creator_username || 'N/A'}</span>
+                    {creatorInfo.creator_nickname && (
+                      <span className="text-gray-500">({creatorInfo.creator_nickname})</span>
+                    )}
+                  </div>
+
+                  {/* Warning if creator can't make more posts */}
+                  {creatorInfo.can_make_more_posts === false && (
+                    <div className="bg-red-900/30 border border-red-600 rounded p-2 mt-2">
+                      <p className="text-red-400 text-xs">⚠️ Has alcanzado el límite de publicaciones. Intenta más tarde.</p>
+                    </div>
+                  )}
+
+                  {creatorInfo.max_video_post_duration_sec && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      Duración máxima: {Math.floor(creatorInfo.max_video_post_duration_sec / 60)}min
+                    </p>
+                  )}
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Punto 2a: Title */}
                 <div>
-                  <label className="text-gray-300 text-sm block mb-1">Título *</label>
+                  <label className="text-gray-300 text-sm block mb-1">
+                    Título <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
                     value={tiktokTitle}
                     onChange={(e) => setTiktokTitle(e.target.value)}
-                    placeholder="Título del video"
+                    placeholder="Título del video (obligatorio)"
                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm lg:text-base"
                     maxLength={150}
                   />
                   <p className="text-gray-500 text-xs mt-1">{tiktokTitle.length}/150</p>
                 </div>
 
+                {/* Punto 2b: Privacy Status - NO DEFAULT, must select */}
                 <div>
-                  <label className="text-gray-300 text-sm block mb-1">Privacidad</label>
+                  <label className="text-gray-300 text-sm block mb-1">
+                    Privacidad <span className="text-red-400">*</span>
+                    <span className="text-gray-500 text-xs ml-2">(Debes seleccionar una opción)</span>
+                  </label>
                   <select
                     value={privacyLevel}
-                    onChange={(e) => setPrivacyLevel(e.target.value)}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm lg:text-base"
+                    onChange={(e) => handlePrivacyChange(e.target.value)}
+                    className={`w-full bg-gray-700 border rounded-lg px-3 py-2 text-white text-sm lg:text-base ${
+                      !privacyLevel ? 'border-yellow-600' : 'border-gray-600'
+                    }`}
                   >
-                    {creatorInfo?.privacy_level_options?.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    )) || (
+                    <option value="">-- Seleccionar privacidad --</option>
+                    {creatorInfo?.privacy_level_options?.map(opt => {
+                      const isDisabled = opt === 'SELF_ONLY' && isOnlyMeDisabled();
+                      return (
+                        <option
+                          key={opt}
+                          value={opt}
+                          disabled={isDisabled}
+                        >
+                          {opt === 'PUBLIC_TO_EVERYONE' && '🌍 Público (Todos)'}
+                          {opt === 'MUTUAL_FOLLOW_FRIENDS' && '👥 Solo amigos'}
+                          {opt === 'SELF_ONLY' && '🔒 Solo yo'}
+                          {opt === 'FOLLOWER_OF_CREATOR' && '👤 Solo seguidores'}
+                          {!['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'SELF_ONLY', 'FOLLOWER_OF_CREATOR'].includes(opt) && opt}
+                          {isDisabled && ' (No disponible para Branded Content)'}
+                        </option>
+                      );
+                    }) || (
                       <>
-                        <option value="PUBLIC_TO_EVERYONE">Público</option>
-                        <option value="MUTUAL_FOLLOW_FRIENDS">Solo amigos</option>
-                        <option value="SELF_ONLY">Solo yo</option>
+                        <option value="PUBLIC_TO_EVERYONE">🌍 Público (Todos)</option>
+                        <option value="MUTUAL_FOLLOW_FRIENDS">👥 Solo amigos</option>
+                        <option value="SELF_ONLY" disabled={isOnlyMeDisabled()}>🔒 Solo yo{isOnlyMeDisabled() ? ' (No disponible para Branded Content)' : ''}</option>
                       </>
                     )}
                   </select>
+                  {isOnlyMeDisabled() && (
+                    <p className="text-yellow-400 text-xs mt-1">
+                      ⚠️ "Solo yo" no está disponible para Branded Content
+                    </p>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <label className="flex items-center gap-2 text-gray-300 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={allowComment}
-                      onChange={(e) => setAllowComment(e.target.checked)}
-                      className="rounded"
-                    />
-                    Comentarios
+                {/* Punto 2c: Interaction Settings - NO DEFAULTS, unchecked */}
+                <div>
+                  <label className="text-gray-300 text-sm block mb-2">
+                    Interacciones <span className="text-gray-500 text-xs">(Debes seleccionar manualmente)</span>
                   </label>
-                  <label className="flex items-center gap-2 text-gray-300 text-sm">
+                  <div className="flex flex-wrap gap-4">
+                    {/* Comment */}
+                    <label className={`flex items-center gap-2 text-sm ${
+                      creatorInfo?.comment_disabled ? 'text-gray-500 cursor-not-allowed' : 'text-gray-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={allowComment}
+                        onChange={(e) => setAllowComment(e.target.checked)}
+                        disabled={creatorInfo?.comment_disabled}
+                        className="rounded"
+                      />
+                      <span>Comentarios</span>
+                      {creatorInfo?.comment_disabled && (
+                        <span className="text-xs text-gray-500">(Deshabilitado en tu cuenta)</span>
+                      )}
+                    </label>
+
+                    {/* Duet - Only for videos */}
+                    {!isPhotoPost && (
+                      <label className={`flex items-center gap-2 text-sm ${
+                        creatorInfo?.duet_disabled ? 'text-gray-500 cursor-not-allowed' : 'text-gray-300'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={allowDuet}
+                          onChange={(e) => setAllowDuet(e.target.checked)}
+                          disabled={creatorInfo?.duet_disabled}
+                          className="rounded"
+                        />
+                        <span>Duet</span>
+                        {creatorInfo?.duet_disabled && (
+                          <span className="text-xs text-gray-500">(Deshabilitado en tu cuenta)</span>
+                        )}
+                      </label>
+                    )}
+
+                    {/* Stitch - Only for videos */}
+                    {!isPhotoPost && (
+                      <label className={`flex items-center gap-2 text-sm ${
+                        creatorInfo?.stitch_disabled ? 'text-gray-500 cursor-not-allowed' : 'text-gray-300'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={allowStitch}
+                          onChange={(e) => setAllowStitch(e.target.checked)}
+                          disabled={creatorInfo?.stitch_disabled}
+                          className="rounded"
+                        />
+                        <span>Stitch</span>
+                        {creatorInfo?.stitch_disabled && (
+                          <span className="text-xs text-gray-500">(Deshabilitado en tu cuenta)</span>
+                        )}
+                      </label>
+                    )}
+                  </div>
+                  {isPhotoPost && (
+                    <p className="text-gray-500 text-xs mt-2">
+                      💡 Duet y Stitch no están disponibles para posts de fotos
+                    </p>
+                  )}
+                </div>
+
+                {/* Punto 3: Commercial Content Disclosure */}
+                <div className="border-t border-gray-700 pt-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="flex items-center gap-2 text-gray-300 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={commercialContentEnabled}
+                        onChange={(e) => handleCommercialToggle(e.target.checked)}
+                        className="rounded"
+                      />
+                      <span className="font-medium">Contenido Comercial</span>
+                    </label>
+                    <span className="text-gray-500 text-xs">(¿Promocionas una marca, producto o servicio?)</span>
+                  </div>
+
+                  {commercialContentEnabled && (
+                    <div className="ml-6 space-y-3 bg-gray-800 p-3 rounded-lg border border-gray-700">
+                      <p className="text-gray-400 text-xs mb-2">
+                        Indica si este contenido promociona algo:
+                      </p>
+
+                      {/* Your Brand */}
+                      <label className="flex items-start gap-2 text-gray-300 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={yourBrand}
+                          onChange={(e) => setYourBrand(e.target.checked)}
+                          className="rounded mt-1"
+                        />
+                        <div>
+                          <span>Tu marca</span>
+                          <p className="text-gray-500 text-xs">Promocionas tu negocio o marca personal</p>
+                        </div>
+                      </label>
+
+                      {/* Branded Content */}
+                      <label className="flex items-start gap-2 text-gray-300 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={brandedContent}
+                          onChange={(e) => setBrandedContent(e.target.checked)}
+                          className="rounded mt-1"
+                        />
+                        <div>
+                          <span>Contenido de marca</span>
+                          <p className="text-gray-500 text-xs">Promocionas una marca o tercero</p>
+                        </div>
+                      </label>
+
+                      {/* Validation message if toggle is on but nothing selected */}
+                      {commercialContentEnabled && !yourBrand && !brandedContent && (
+                        <p className="text-yellow-400 text-xs bg-yellow-900/20 p-2 rounded">
+                          ⚠️ Debes seleccionar al menos una opción para continuar
+                        </p>
+                      )}
+
+                      {/* Label preview */}
+                      {getCommercialLabel() && (
+                        <p className="text-blue-400 text-xs bg-blue-900/20 p-2 rounded mt-2">
+                          🏷️ {getCommercialLabel()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Punto 4: Declaration */}
+                <div className="border-t border-gray-700 pt-4">
+                  <label className="flex items-start gap-2 text-gray-300 text-sm cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={allowDuet}
-                      onChange={(e) => setAllowDuet(e.target.checked)}
-                      className="rounded"
+                      checked={userConsent}
+                      onChange={(e) => setUserConsent(e.target.checked)}
+                      className="rounded mt-1"
                     />
-                    Duet
-                  </label>
-                  <label className="flex items-center gap-2 text-gray-300 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={allowStitch}
-                      onChange={(e) => setAllowStitch(e.target.checked)}
-                      className="rounded"
-                    />
-                    Stitch
+                    <span className="text-xs leading-relaxed">
+                      {getDeclarationText()}
+                    </span>
                   </label>
                 </div>
 
+                {/* Punto 5: Processing notice */}
+                <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                  <p className="text-gray-400 text-xs">
+                    ℹ️ <strong>Nota:</strong> Después de publicar, puede tomar unos minutos en procesarse y aparecer en tu perfil de TikTok.
+                  </p>
+                </div>
+
+                {/* Publish button */}
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={handlePublishTikTok}
-                    disabled={publishing}
-                    className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg disabled:opacity-50"
+                    disabled={publishing || isPublishDisabled()}
+                    className={`flex-1 font-medium py-3 px-4 rounded-lg text-sm lg:text-base transition ${
+                      isPublishDisabled()
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white'
+                    }`}
                   >
                     {publishing ? 'Publicando...' : 'Publicar en TikTok'}
                   </button>
                   <button
                     onClick={() => setShowTikTokOptions(false)}
-                    className="sm:w-auto px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white"
+                    className="sm:w-auto px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm lg:text-base"
                   >
                     Cancelar
                   </button>
